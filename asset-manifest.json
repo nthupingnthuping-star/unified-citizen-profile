@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/unified-citizen-profile/static/css/main.05318cf9.css",
-    "main.js": "/unified-citizen-profile/static/js/main.ab56db5d.js",
+    "main.js": "/unified-citizen-profile/static/js/main.e075b438.js",
     "index.html": "/unified-citizen-profile/index.html",
     "main.05318cf9.css.map": "/unified-citizen-profile/static/css/main.05318cf9.css.map",
-    "main.ab56db5d.js.map": "/unified-citizen-profile/static/js/main.ab56db5d.js.map"
+    "main.e075b438.js.map": "/unified-citizen-profile/static/js/main.e075b438.js.map"
   },
   "entrypoints": [
     "static/css/main.05318cf9.css",
-    "static/js/main.ab56db5d.js"
+    "static/js/main.e075b438.js"
   ]
 }
