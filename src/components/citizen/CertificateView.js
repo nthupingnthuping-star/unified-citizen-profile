@@ -85,7 +85,7 @@ const CertificateView = () => {
           background: 'white',
         }}>
           <div style={{ textAlign: 'center', borderBottom: '2px solid #003366', paddingBottom: 15, marginBottom: 25 }}>
-            <img src="/assets/logos/lesotho-coat-of-arms.png" alt="Lesotho"
+            <img src={`${process.env.PUBLIC_URL}/assets/logos/lesotho-coat-of-arms.png`} alt="Lesotho"
               style={{ height: 70, marginBottom: 10 }}
               onError={(e) => { e.target.style.display = 'none'; }} />
             <h1 style={{ margin: 0, color: '#003366', fontSize: 22 }}>

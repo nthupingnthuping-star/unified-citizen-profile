@@ -1,47 +1,50 @@
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../i18n/LanguageContext';
 import NotificationBell from './NotificationBell';
+import LanguageToggle from './LanguageToggle';
 
 const Layout = ({ children, title }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { profile } = useAuth();
+  const { t } = useLanguage();
 
   const serviceGroups = [
     {
-      group: 'My Identity',
+      groupKey: 'group_my_identity',
       items: [
-        { path: '/dashboard', label: 'Dashboard' },
-        { path: '/home-affairs', label: 'Verify My Identity' },
-        { path: '/notifications', label: 'Notifications' },
-        { path: '/access-history', label: 'Who Viewed My Data' },
+        { path: '/dashboard', labelKey: 'dashboard' },
+        { path: '/home-affairs', labelKey: 'verify_my_identity' },
+        { path: '/notifications', labelKey: 'notifications' },
+        { path: '/access-history', labelKey: 'who_viewed_my_data' },
       ],
     },
     {
-      group: 'Appointments',
+      groupKey: 'group_appointments',
       items: [
-        { path: '/appointments', label: 'My Appointments' },
-        { path: '/appointments/book', label: 'Book a Visit' },
+        { path: '/appointments', labelKey: 'my_appointments' },
+        { path: '/appointments/book', labelKey: 'book_a_visit' },
       ],
     },
     {
-      group: 'Money & Taxes',
+      groupKey: 'group_money_taxes',
       items: [
-        { path: '/finance', label: 'Tax Clearance & Refunds' },
-        { path: '/pensions', label: 'Pension Services' },
+        { path: '/finance', labelKey: 'tax_clearance_refunds' },
+        { path: '/pensions', labelKey: 'pension_services' },
       ],
     },
     {
-      group: 'Transport',
+      groupKey: 'group_transport',
       items: [
-        { path: '/traffic', label: "Driver's License & Vehicles" },
+        { path: '/traffic', labelKey: 'drivers_license_vehicles' },
       ],
     },
     {
-      group: 'Travel & Safety',
+      groupKey: 'group_travel_safety',
       items: [
-        { path: '/passport', label: 'Passport Services' },
-        { path: '/police', label: 'Police Clearance & Reports' },
+        { path: '/passport', labelKey: 'passport_services' },
+        { path: '/police', labelKey: 'police_clearance_reports' },
       ],
     },
   ];
@@ -57,23 +60,28 @@ const Layout = ({ children, title }) => {
         display: 'flex', flexDirection: 'column', position: 'fixed',
         top: 0, bottom: 0, left: 0, zIndex: 10,
       }}>
+        {/* Header with logo + language toggle + bell */}
         <div style={{ padding: '15px 20px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <img src="/assets/logos/lesotho-coat-of-arms.png" alt="Lesotho"
-              style={{ width: 40, height: 40, objectFit: 'contain',
-                background: 'white', borderRadius: 6, padding: 3 }}
-              onError={(e) => { e.target.style.display = 'none'; }} />
+            <img
+              src={`${process.env.PUBLIC_URL}/assets/logos/lesotho-coat-of-arms.png`}
+              alt="Lesotho"
+              style={{ width: 40, height: 40, objectFit: 'contain', background: 'white', borderRadius: 6, padding: 3 }}
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 'bold', fontSize: 13, color: 'white' }}>Unified Citizen</div>
-              <div style={{ fontSize: 11, color: '#b3d4ff' }}>Profile System</div>
+              <div style={{ fontWeight: 'bold', fontSize: 13, color: 'white' }}>{t('unified_citizen')}</div>
+              <div style={{ fontSize: 11, color: '#b3d4ff' }}>{t('profile_system')}</div>
             </div>
+            <LanguageToggle />
             <NotificationBell />
           </div>
         </div>
 
+        {/* Signed-in user */}
         {profile && (
           <div style={{ padding: '15px 20px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-            <div style={{ fontSize: 11, color: '#b3d4ff', fontWeight: 'bold' }}>Signed in as</div>
+            <div style={{ fontSize: 11, color: '#b3d4ff', fontWeight: 'bold' }}>{t('signed_in_as')}</div>
             <div style={{ fontWeight: 'bold', fontSize: 13, marginTop: 3, color: 'white' }}>
               {profile.full_name}
             </div>
@@ -82,14 +90,15 @@ const Layout = ({ children, title }) => {
               color: profile.verified_by_home_affairs ? '#7fff7f' : '#ffcc00',
               fontWeight: 'bold',
             }}>
-              {profile.verified_by_home_affairs ? 'Verified' : 'Not Verified'}
+              {profile.verified_by_home_affairs ? t('verified') : t('not_verified')}
             </div>
           </div>
         )}
 
+        {/* Menu */}
         <nav style={{ flex: 1, padding: '15px 0', overflowY: 'auto' }}>
           {serviceGroups.map((group) => (
-            <div key={group.group} style={{ marginBottom: 15 }}>
+            <div key={group.groupKey} style={{ marginBottom: 15 }}>
               <div style={{
                 padding: '8px 20px',
                 fontSize: 10,
@@ -98,7 +107,7 @@ const Layout = ({ children, title }) => {
                 color: '#ffcc00',
                 fontWeight: 'bold',
               }}>
-                {group.group}
+                {t(group.groupKey)}
               </div>
               {group.items.map((item) => {
                 const isActive = location.pathname === item.path;
@@ -113,7 +122,7 @@ const Layout = ({ children, title }) => {
                     fontSize: 13,
                     fontWeight: isActive ? 'bold' : 'normal',
                   }}>
-                    {item.label}
+                    {t(item.labelKey)}
                   </Link>
                 );
               })}
@@ -121,13 +130,14 @@ const Layout = ({ children, title }) => {
           ))}
         </nav>
 
+        {/* Logout */}
         <div style={{ padding: 15, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
           <button onClick={handleLogout} style={{
             width: '100%', padding: 10, background: 'rgba(255,255,255,0.15)',
             color: 'white', border: 'none', borderRadius: 4,
             cursor: 'pointer', fontSize: 13, fontWeight: 'bold',
           }}>
-            Logout
+            {t('logout')}
           </button>
         </div>
       </aside>

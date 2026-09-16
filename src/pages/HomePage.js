@@ -1,18 +1,18 @@
 import { Link } from 'react-router-dom';
+import { assetPath } from '../utils/assetPath';
 
 const HomePage = () => {
   const departments = [
-    { logo: '/assets/logos/home-affairs.png', name: 'Home Affairs', desc: 'Identity verification & citizenship' },
-    { logo: '/assets/logos/finance.png', name: 'Finance / RSL', desc: 'Tax clearance & PAYE refunds' },
-    { logo: '/assets/logos/traffic.png', name: 'Traffic', desc: "Driver's licenses & traffic fines" },
-    { logo: '/assets/logos/police.png', name: 'Police', desc: 'Clearances & crime reports' },
-    { logo: '/assets/logos/passport.png', name: 'Passport', desc: 'New passports & renewals' },
-    { logo: '/assets/logos/pensions.png', name: 'Pensions', desc: 'Pension registration & payouts' },
+    { logo: assetPath('/assets/logos/home-affairs.png'), name: 'Home Affairs', desc: 'Identity verification & citizenship' },
+    { logo: assetPath('/assets/logos/finance.png'), name: 'Finance / RSL', desc: 'Tax clearance & PAYE refunds' },
+    { logo: assetPath('/assets/logos/traffic.png'), name: 'Traffic', desc: "Driver's licenses & traffic fines" },
+    { logo: assetPath('/assets/logos/police.png'), name: 'Police', desc: 'Clearances & crime reports' },
+    { logo: assetPath('/assets/logos/passport.png'), name: 'Passport', desc: 'New passports & renewals' },
+    { logo: assetPath('/assets/logos/pensions.png'), name: 'Pensions', desc: 'Pension registration & payouts' },
   ];
 
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
-      {/* HEADER */}
       <header style={{ background: '#003366', color: 'white', padding: '15px 30px' }}>
         <div style={{
           maxWidth: 1200, margin: '0 auto',
@@ -20,7 +20,7 @@ const HomePage = () => {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
             <img
-              src="/assets/logos/lesotho-coat-of-arms.png"
+              src={assetPath('/assets/logos/lesotho-coat-of-arms.png')}
               alt="Lesotho Coat of Arms"
               style={{ height: 55, width: 'auto' }}
               onError={(e) => { e.target.style.display = 'none'; }}
@@ -43,10 +43,9 @@ const HomePage = () => {
         </div>
       </header>
 
-      {/* HERO */}
       <section style={{
         position: 'relative',
-        backgroundImage: 'url(/assets/images/government-building.jpg)',
+        backgroundImage: `url(${assetPath('/assets/images/government-building.jpg')})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         color: 'white',
@@ -58,7 +57,7 @@ const HomePage = () => {
         }} />
         <div style={{ position: 'relative', maxWidth: 900, margin: '0 auto', textAlign: 'center' }}>
           <img
-            src="/assets/logos/lesotho-coat-of-arms.png"
+            src={assetPath('/assets/logos/lesotho-coat-of-arms.png')}
             alt="Lesotho"
             style={{ height: 100, marginBottom: 20 }}
             onError={(e) => { e.target.style.display = 'none'; }}
@@ -85,7 +84,6 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* PROBLEM */}
       <section style={{ padding: '60px 30px', background: 'white' }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
           <h2 style={{ textAlign: 'center', fontSize: 32, color: '#003366' }}>The Problem</h2>
@@ -97,38 +95,22 @@ const HomePage = () => {
             government offices, and long queues — all because departments don't share information.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, marginTop: 40 }}>
-            <div style={{
-              padding: 25, background: '#f9f9f9', borderRadius: 8,
-              borderLeft: '4px solid #cc0000',
-            }}>
+            <div style={{ padding: 25, background: '#f9f9f9', borderRadius: 8, borderLeft: '4px solid #cc0000' }}>
               <h3 style={{ color: '#cc0000', marginTop: 0, fontSize: 32 }}>3–5×</h3>
-              <p style={{ color: '#555', margin: 0 }}>
-                You submit the same ID to different offices
-              </p>
+              <p style={{ color: '#555', margin: 0 }}>You submit the same ID to different offices</p>
             </div>
-            <div style={{
-              padding: 25, background: '#f9f9f9', borderRadius: 8,
-              borderLeft: '4px solid #cc0000',
-            }}>
+            <div style={{ padding: 25, background: '#f9f9f9', borderRadius: 8, borderLeft: '4px solid #cc0000' }}>
               <h3 style={{ color: '#cc0000', marginTop: 0, fontSize: 32 }}>2–4 hrs</h3>
-              <p style={{ color: '#555', margin: 0 }}>
-                Average waiting time per office visit
-              </p>
+              <p style={{ color: '#555', margin: 0 }}>Average waiting time per office visit</p>
             </div>
-            <div style={{
-              padding: 25, background: '#f9f9f9', borderRadius: 8,
-              borderLeft: '4px solid #cc0000',
-            }}>
+            <div style={{ padding: 25, background: '#f9f9f9', borderRadius: 8, borderLeft: '4px solid #cc0000' }}>
               <h3 style={{ color: '#cc0000', marginTop: 0, fontSize: 32 }}>Months</h3>
-              <p style={{ color: '#555', margin: 0 }}>
-                To process a PAYE tax refund
-              </p>
+              <p style={{ color: '#555', margin: 0 }}>To process a PAYE tax refund</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* SOLUTION */}
       <section style={{ padding: '60px 30px', background: '#f5f5f5' }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
           <h2 style={{ textAlign: 'center', fontSize: 32, color: '#003366' }}>Our Solution</h2>
@@ -141,7 +123,7 @@ const HomePage = () => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, marginTop: 40 }}>
             <div style={{ padding: 25, background: 'white', borderRadius: 8, textAlign: 'center' }}>
               <img
-                src="/assets/images/citizen-card.png"
+                src={assetPath('/assets/images/citizen-card.png')}
                 alt="Verify"
                 style={{ height: 100, marginBottom: 15 }}
                 onError={(e) => { e.target.style.display = 'none'; }}
@@ -151,7 +133,7 @@ const HomePage = () => {
             </div>
             <div style={{ padding: 25, background: 'white', borderRadius: 8, textAlign: 'center' }}>
               <img
-                src="/assets/icons/verified-badge.svg"
+                src={assetPath('/assets/icons/verified-badge.svg')}
                 alt="Control"
                 style={{ height: 100, marginBottom: 15 }}
                 onError={(e) => { e.target.style.display = 'none'; }}
@@ -161,7 +143,7 @@ const HomePage = () => {
             </div>
             <div style={{ padding: 25, background: 'white', borderRadius: 8, textAlign: 'center' }}>
               <img
-                src="/assets/images/flag-lesotho.png"
+                src={assetPath('/assets/images/flag-lesotho.png')}
                 alt="Lesotho"
                 style={{ height: 100, marginBottom: 15 }}
                 onError={(e) => { e.target.style.display = 'none'; }}
@@ -173,7 +155,6 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* DEPARTMENTS */}
       <section style={{ padding: '60px 30px', background: 'white' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <h2 style={{ textAlign: 'center', fontSize: 32, color: '#003366' }}>
@@ -212,10 +193,9 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* MID-PAGE CTA WITH BACKGROUND */}
       <section style={{
         padding: '80px 30px',
-        backgroundImage: 'url(/assets/images/government-building.jpg)',
+        backgroundImage: `url(${assetPath('/assets/images/government-building.jpg')})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         position: 'relative',
@@ -238,7 +218,6 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* FINAL CTA */}
       <section style={{
         padding: '60px 30px', background: '#003366',
         color: 'white', textAlign: 'center',
@@ -256,7 +235,6 @@ const HomePage = () => {
         }}>Create Your Profile</Link>
       </section>
 
-      {/* FOOTER */}
       <footer style={{
         background: '#001a33', color: 'white',
         padding: 30, textAlign: 'center',
@@ -265,10 +243,10 @@ const HomePage = () => {
           display: 'flex', justifyContent: 'center',
           gap: 20, marginBottom: 15,
         }}>
-          <img src="/assets/logos/lesotho-coat-of-arms.png" alt="Coat of Arms"
+          <img src={assetPath('/assets/logos/lesotho-coat-of-arms.png')} alt="Coat of Arms"
             style={{ height: 45 }}
             onError={(e) => { e.target.style.display = 'none'; }} />
-          <img src="/assets/images/flag-lesotho.png" alt="Lesotho Flag"
+          <img src={assetPath('/assets/images/flag-lesotho.png')} alt="Lesotho Flag"
             style={{ height: 45 }}
             onError={(e) => { e.target.style.display = 'none'; }} />
         </div>

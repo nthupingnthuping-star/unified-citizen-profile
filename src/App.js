@@ -1,14 +1,16 @@
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { LanguageProvider } from './i18n/LanguageContext';
 import AppRoutes from './routes/AppRoutes';
 import './App.css';
 
 function App() {
-  console.log('🚀 App rendering');
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <LanguageProvider>
+          <AppRoutes />
+        </LanguageProvider>
       </AuthProvider>
     </BrowserRouter>
   );

@@ -38,7 +38,7 @@ const CitizenLogin = () => {
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundImage: 'url(/assets/images/government-building.jpg)',
+      backgroundImage: 'url(assets/images/government-building.jpg)',
       backgroundSize: 'cover', backgroundPosition: 'center',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: 20, position: 'relative',
@@ -54,7 +54,7 @@ const CitizenLogin = () => {
         boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
       }}>
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <img src="/assets/logos/lesotho-coat-of-arms.png" alt="Lesotho"
+          <img src={`${process.env.PUBLIC_URL}/assets/logos/lesotho-coat-of-arms.png`} alt="Lesotho"
             style={{ height: 80, marginBottom: 10 }}
             onError={(e) => { e.target.style.display = 'none'; }} />
           <h1 style={{ color: '#003366', margin: 0, fontSize: 22 }}>Citizen Login</h1>

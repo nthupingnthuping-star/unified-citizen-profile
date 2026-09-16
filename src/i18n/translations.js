@@ -1,0 +1,678 @@
+/* eslint-disable no-dupe-keys */
+export const translations = {
+  en: {
+    // ==========================================
+    // SIDEBAR GROUPS
+    // ==========================================
+    group_my_identity: 'My Identity',
+    group_appointments: 'Appointments',
+    group_money_taxes: 'Money & Taxes',
+    group_transport: 'Transport',
+    group_travel_safety: 'Travel & Safety',
+
+    // ==========================================
+    // SIDEBAR ITEMS — CITIZEN
+    // ==========================================
+    dashboard: 'Dashboard',
+    verify_my_identity: 'Verify My Identity',
+    notifications: 'Notifications',
+    who_viewed_my_data: 'Who Viewed My Data',
+    my_appointments: 'My Appointments',
+    book_a_visit: 'Book a Visit',
+    tax_clearance_refunds: 'Tax Clearance & Refunds',
+    pension_services: 'Pension Services',
+    drivers_license_vehicles: "Driver's License & Vehicles",
+    passport_services: 'Passport Services',
+    police_clearance_reports: 'Police Clearance & Reports',
+
+    // ==========================================
+    // SIDEBAR ITEMS — STAFF
+    // ==========================================
+    overview: 'Overview',
+    application_queue: 'Application Queue',
+    verification_queue: 'Verification Queue',
+    appointments: 'Appointments',
+    analytics: 'Analytics',
+
+    // ==========================================
+    // COMMON BUTTONS
+    // ==========================================
+    login: 'Login',
+    register: 'Register',
+    logout: 'Logout',
+    save: 'Save',
+    cancel: 'Cancel',
+    submit: 'Submit',
+    submit_application: 'Submit Application',
+    submit_refund_claim: 'Submit Refund Claim',
+    submit_report: 'Report Crime',
+    approve: 'Approve',
+    reject: 'Reject',
+    request_info: 'Request Info',
+    book_now: 'Book Now',
+    book_new_visit: 'Book a New Visit',
+    confirm_appointment: 'Confirm Appointment',
+    cancel_appointment: 'Cancel Appointment',
+    apply: 'Apply',
+    view_certificate: 'View Certificate',
+    mark_read: 'Mark Read',
+    mark_all_read: 'Mark All as Read',
+    next: 'Next',
+    previous: 'Previous',
+    back: 'Back',
+
+    // ==========================================
+    // AUTH PAGES
+    // ==========================================
+    citizen_login: 'Citizen Login',
+    staff_login: 'Staff Login',
+    register_profile: 'Register Citizen Profile',
+    unified_citizen: 'Unified Citizen',
+    profile_system: 'Profile System',
+    staff_portal: 'Staff Portal',
+    government_of_lesotho: 'Government of Lesotho',
+    email: 'Email',
+    password: 'Password',
+    username: 'Username',
+    national_id: 'National ID',
+    full_name: 'Full Name',
+    date_of_birth: 'Date of Birth',
+    gender: 'Gender',
+    male: 'Male',
+    female: 'Female',
+    other: "Other",
+    residential_address: 'Residential Address',
+    phone_number: 'Phone Number',
+    dont_have_account: "Don't have an account?",
+    already_registered: 'Already registered?',
+    register_here: 'Register here',
+    login_here: 'Login here',
+    back_to_home: 'Back to Home',
+    back_to_dashboard: 'Back to Dashboard',
+    logging_in: 'Logging in...',
+    registering: 'Registering...',
+
+    // ==========================================
+    // DASHBOARD
+    // ==========================================
+    welcome_back: 'Welcome back',
+    welcome: 'Welcome',
+    available_services: 'Available Services',
+    my_profile: 'My Profile',
+    signed_in_as: 'Signed in as',
+    verified: 'Verified',
+    not_verified: 'Not Verified',
+    verified_by_home_affairs: 'Verified by Home Affairs',
+    not_verified_by_home_affairs: 'Not Verified by Home Affairs',
+    citizenship: 'Citizenship',
+    citizen: 'Citizen',
+    unknown: 'Unknown',
+
+    // ==========================================
+    // MINISTRY NAMES (DASHBOARD)
+    // ==========================================
+    ministry_finance: 'Finance / RSL',
+    ministry_home_affairs: 'Home Affairs',
+    ministry_traffic: 'Traffic',
+    ministry_police: 'Police',
+    ministry_passport: 'Passport',
+    ministry_pensions: 'Pensions',
+    ministry_access_history: 'Access History',
+    ministry_finance_desc: 'Tax clearance & PAYE refunds',
+    ministry_home_affairs_desc: 'Identity & citizenship',
+    ministry_traffic_desc: 'Licenses & traffic fines',
+    ministry_police_desc: 'Clearances & crime reports',
+    ministry_passport_desc: 'New passports & renewals',
+    ministry_pensions_desc: 'Pension registration',
+    ministry_access_history_desc: 'Who accessed your data',
+
+    // ==========================================
+    // MINISTRY HEADINGS
+    // ==========================================
+    ministry_of_finance: 'Ministry of Finance / Revenue Services Lesotho (RSL)',
+    traffic_department: 'Department of Traffic and Transport',
+    police_service: 'Lesotho Mounted Police Service',
+    passport_office: 'Passport and Citizenship Office',
+    pensions_department: 'Pensions Department',
+    home_affairs_ministry: 'Ministry of Home Affairs',
+
+    // ==========================================
+    // TABS
+    // ==========================================
+    my_applications_tab: 'My Applications',
+    tax_clearance_tab: 'Tax Clearance (e-TCC)',
+    paye_refund_tab: 'PAYE Refund',
+    learner_license_tab: 'Learner License',
+    drivers_license_tab: "Driver's License",
+    vehicle_registration_tab: 'Vehicle Registration',
+    police_clearance_tab: 'Police Clearance',
+    report_crime_tab: 'Report a Crime',
+    new_passport_tab: 'New Passport',
+    renewal_tab: 'Renewal',
+    old_age_pension_tab: 'Old Age Pension',
+    disability_grant_tab: 'Disability Grant',
+
+    // ==========================================
+    // FINANCE
+    // ==========================================
+    business_name: 'Business Name',
+    tin: 'Tax Identification Number (TIN)',
+    purpose: 'Purpose',
+    is_new_business: 'I am a new business',
+    employer: 'Employer',
+    amount_maloti: 'Amount (Maloti)',
+    have_form_p9: 'I have Form P9 from my employer',
+
+    // ==========================================
+    // TRAFFIC
+    // ==========================================
+    vehicle_type: 'Vehicle Type',
+    standard_car: 'Standard Car',
+    motorcycle: 'Motorcycle',
+    has_eye_test: 'I have a medical eye test certificate',
+    has_photos: 'I have 2 passport-size photos',
+    license_code: 'License Code',
+    transmission: 'Transmission',
+    manual: 'Manual',
+    automatic: 'Automatic',
+    has_learner: 'I have a valid Learner License',
+    has_certificate: 'I have a Certificate of Competence',
+    plate_number: 'Plate Number',
+    year: 'Year',
+    make: 'Make',
+    model: 'Model',
+    chassis_number: 'Chassis Number',
+    has_customs: 'I have customs clearance (for imports)',
+    has_vat: 'I have VAT clearance from RSL',
+
+    // ==========================================
+    // POLICE
+    // ==========================================
+    destination_country: 'Destination Country',
+    has_id_copy: 'I have my original National ID',
+    crime_type: 'Crime Type',
+    location: 'Location',
+    date_of_incident: 'Date of Incident',
+    description: 'Description',
+    has_evidence: 'I have evidence',
+    select: '-- Select --',
+
+    // ==========================================
+    // PASSPORT
+    // ==========================================
+    passport_type: 'Passport Type',
+    ordinary: 'Ordinary',
+    diplomatic: 'Diplomatic',
+    passport_service_type: 'Service',
+    has_birth_certificate: 'I have a birth certificate',
+    old_passport_number: 'Old Passport Number',
+    has_old_passport: 'I have my old passport',
+
+    // ==========================================
+    // PENSIONS
+    // ==========================================
+    bank_account: 'Bank Account Number',
+    has_bank_statement: 'I have a bank statement as proof',
+    disability_type: 'Disability Type',
+    has_medical_report: 'I have a medical report',
+
+    // ==========================================
+    // APPOINTMENTS
+    // ==========================================
+    step_department: '1. Department & Service',
+    step_branch: '2. Branch & Date',
+    step_time: '3. Time Slot',
+    step_confirm: '4. Confirm',
+    which_department: 'Which department do you need to visit?',
+    which_service: 'Which service?',
+    branch: 'Branch',
+    date: 'Date',
+    time: 'Time',
+    select_branch_date: 'Where and when?',
+    select_time_slot: 'What time works for you?',
+    review_appointment: 'Confirm your appointment',
+    service_type: 'Service Type',
+    appointment_confirmed: 'Appointment confirmed!',
+    appointment_cancelled: 'Appointment cancelled',
+    no_appointments: 'You have no appointments booked yet',
+    checking_availability: 'Checking availability...',
+    slots_left: 'left',
+    full: 'FULL',
+
+    // ==========================================
+    // APPLICATION STATUS
+    // ==========================================
+    status: 'Status',
+    reference: 'Reference',
+    service: 'Service',
+    submitted: 'Submitted',
+    action: 'Action',
+    pending: 'Pending',
+    approved: 'Approved',
+    rejected: 'Rejected',
+    processing: 'Processing',
+    completed: 'Completed',
+    booked: 'Booked',
+    cancelled: 'Cancelled',
+    no_applications_yet: 'No applications yet.',
+    loading: 'Loading...',
+    loading_applications: 'Loading applications...',
+    reference_number: 'Reference Number',
+    issue_date: 'Issue Date',
+    valid_until: 'Valid Until',
+
+    // ==========================================
+    // NOTIFICATIONS
+    // ==========================================
+    unread_notifications: 'unread notifications',
+    notification_help: "You'll be notified when your applications change status or when appointments are confirmed",
+    no_notifications: 'No notifications yet',
+    no_unread: 'No unread notifications',
+    no_read: 'No read notifications yet',
+    view_all_notifications: 'View all notifications',
+    filter_all: 'All',
+    filter_unread: 'Unread',
+    filter_read: 'Read',
+
+    // ==========================================
+    // ACCESS HISTORY
+    // ==========================================
+    access_history: 'Access History',
+    who_accessed_my_data: 'Who Viewed My Data',
+    access_help: "Every time a government department accesses your data, it is recorded here",
+    department: 'Department',
+    staff: 'Staff',
+    date_time: 'Date & Time',
+    no_access_records: 'No one has accessed your data yet',
+
+    // ==========================================
+    // STAFF PAGES
+    // ==========================================
+    staff_dashboard_welcome: 'Welcome',
+    role_permissions: 'Role & Permissions',
+    role_help: 'You can view, approve, reject, or request more info on applications submitted to your department',
+    role_restriction: 'You cannot create applications, edit citizen data, or access other ministries records',
+    your_services: 'Your Services',
+
+    // ==========================================
+    // ANALYTICS
+    // ==========================================
+    total_applications: 'Total Applications',
+    approval_rate: 'Approval Rate',
+    avg_processing: 'Avg Processing Time',
+    processed: 'Processed',
+    apps_per_day: 'Applications per Day (Last 14 Days)',
+    status_breakdown: 'Status Breakdown',
+    top_services: 'Top Services',
+    insights: 'Insights',
+
+    // ==========================================
+    // CERTIFICATE
+    // ==========================================
+    certificate: 'Certificate',
+    government_of_lesotho_full: 'Government of Lesotho',
+    this_certifies_that: 'This is to certify that',
+    has_been_granted: "Has been granted this certificate in accordance with the laws of the Kingdom of Lesotho",
+    scan_qr: 'Scan this QR code to verify this certificate online',
+    print_save_pdf: 'Print / Save as PDF',
+    invalid_certificate: 'Certificate Not Valid',
+    expired_certificate: 'Certificate Expired',
+    authentic_certificate: 'Certificate is Authentic',
+    certificate_not_found: 'Certificate Not Found',
+
+    // ==========================================
+    // VERIFY PAGE
+    // ==========================================
+    certificate_verification: 'Certificate Verification',
+    issued_to: 'Issued To',
+    issued_by: 'Issued By',
+    verifying: 'Verifying certificate...',
+
+    // ==========================================
+    // LANGUAGE
+    // ==========================================
+    language: 'Language',
+    english: 'English',
+    sesotho: 'Sesotho',
+    switch_to_english: 'Switch to English',
+    switch_to_sesotho: 'Fetolela ho Sesotho',
+  },
+
+  st: {
+    // ==========================================
+    // SIDEBAR GROUPS
+    // ==========================================
+    group_my_identity: 'Boitsebiso ba Ka',
+    group_appointments: 'Likopano',
+    group_money_taxes: 'Chelete le Lekhetho',
+    group_transport: 'Lipalangwang',
+    group_travel_safety: 'Maeto le Polokeho',
+
+    // ==========================================
+    // SIDEBAR ITEMS — CITIZEN
+    // ==========================================
+    dashboard: 'Leqephe la Ka',
+    verify_my_identity: 'Netefatsa Boitsebiso ba Ka',
+    notifications: 'Litsebiso',
+    who_viewed_my_data: 'Ke Mang ea Shebileng Boitsebiso ba Ka',
+    my_appointments: 'Likopano tsa Ka',
+    book_a_visit: 'Beha Nako ea Ho Eta',
+    tax_clearance_refunds: 'Tlhahlobo ea Lekhetho',
+    pension_services: 'Litšebeletso tsa Penshene',
+    drivers_license_vehicles: 'Laesense ea Koloi',
+    passport_services: 'Litšebeletso tsa Phasepoto',
+    police_clearance_reports: 'Tlhatlhobo ea Sepolesa',
+
+    // ==========================================
+    // SIDEBAR ITEMS — STAFF
+    // ==========================================
+    overview: 'Kakaretso',
+    application_queue: 'Lenane la Likopo',
+    verification_queue: 'Lenane la Netefatso',
+    appointments: 'Likopano',
+    analytics: 'Tlhahlobo',
+
+    // ==========================================
+    // COMMON BUTTONS
+    // ==========================================
+    login: 'Kena',
+    register: 'Ngolisa',
+    logout: 'Tsoa',
+    save: 'Boloka',
+    cancel: 'Hlakola',
+    submit: 'Romela',
+    submit_application: 'Romela Kopo',
+    submit_refund_claim: 'Romela Kopo ea Pusetso',
+    submit_report: 'Tlaleha Tlolo ea Molao',
+    approve: 'Amohela',
+    reject: 'Hana',
+    request_info: 'Kopa Tlhaloso',
+    book_now: 'Beha Nako',
+    book_new_visit: 'Beha Nako ea Ho Eta e Ncha',
+    confirm_appointment: 'Netefatsa Kopano',
+    cancel_appointment: 'Hlakola Kopano',
+    apply: 'Etsa Kopo',
+    view_certificate: 'Sheba Setifikeiti',
+    mark_read: 'Tšoaea e Baliloe',
+    mark_all_read: 'Tšoaea kaofela e le ho baloa',
+    next: 'Latela',
+    previous: 'Fetileng',
+    back: 'Khutla',
+
+    // ==========================================
+    // AUTH PAGES
+    // ==========================================
+    citizen_login: 'Ho Kena ha Moahi',
+    staff_login: 'Ho Kena ha Basebetsi',
+    register_profile: 'Ngolisa Moahi',
+    unified_citizen: 'Moahi ea Kopanetsoeng',
+    profile_system: 'Sistimi ea Boitsebiso',
+    staff_portal: 'Portal ea Basebetsi',
+    government_of_lesotho: 'Mmuso oa Lesotho',
+    email: 'Imeile',
+    password: 'Phasewete',
+    username: 'Lebitso la Mosebelisi',
+    national_id: 'Nomoro ea Boitsebiso',
+    full_name: 'Lebitso ka Botlalo',
+    date_of_birth: 'Letsatsi la Tsoalo',
+    gender: 'Bong',
+    male: 'Monna',
+    female: 'Mosali',
+    other: "E 'ngoe",
+    residential_address: 'Aterese ea Lehae',
+    phone_number: 'Nomoro ea Mohala',
+    dont_have_account: 'Ha u na akhaonto?',
+    already_registered: 'U se u ngolisitse?',
+    register_here: 'Ngolisa mona',
+    login_here: 'Kena mona',
+    back_to_home: 'Khutlela Haeng',
+    back_to_dashboard: 'Khutlela Leqepheng la Ka',
+    logging_in: 'Ho kena...',
+    registering: 'Ho ngolisa...',
+
+    // ==========================================
+    // DASHBOARD
+    // ==========================================
+    welcome_back: 'Rea u amohela',
+    welcome: 'Rea u amohela',
+    available_services: 'Litšebeletso tse Fumanehang',
+    my_profile: 'Boitsebiso ba Ka',
+    signed_in_as: 'U kene e le',
+    verified: 'Netefalitsoe',
+    not_verified: 'Ha e So Netefatsoe',
+    verified_by_home_affairs: 'E Netefalitsoe ke Litaba tsa Lehae',
+    not_verified_by_home_affairs: 'Ha e So Netefatsoe ke Litaba tsa Lehae',
+    citizenship: 'Boahi',
+    citizen: 'Moahi',
+    unknown: 'Ha e Tsejoe',
+
+    // ==========================================
+    // MINISTRY NAMES (DASHBOARD)
+    // ==========================================
+    ministry_finance: 'Lichelete / RSL',
+    ministry_home_affairs: 'Litaba tsa Lehae',
+    ministry_traffic: 'Sephethephethe',
+    ministry_police: 'Sepolesa',
+    ministry_passport: 'Phasepoto',
+    ministry_pensions: 'Penshene',
+    ministry_access_history: 'Nalane ea Phihlello',
+    ministry_finance_desc: 'Tlhahlobo ea Lekhetho le Pusetso ea PAYE',
+    ministry_home_affairs_desc: 'Boitsebiso le Boahi',
+    ministry_traffic_desc: 'Laesense le Litefiso',
+    ministry_police_desc: 'Tlhatlhobo le Litlaleho',
+    ministry_passport_desc: 'Phasepoto e Ncha le Nchafatso',
+    ministry_pensions_desc: 'Ho Ngolisa Penshene',
+    ministry_access_history_desc: 'Ke Mang ea Shebileng Boitsebiso ba Hau',
+
+    // ==========================================
+    // MINISTRY HEADINGS
+    // ==========================================
+    ministry_of_finance: 'Lefapha la Lichelete / Litšebeletso tsa Lekhetho Lesotho',
+    traffic_department: 'Lefapha la Sephethephethe le Lipalangwang',
+    police_service: 'Sepolesa sa Lesotho',
+    passport_office: 'Ofisi ea Phasepoto le Boahi',
+    pensions_department: 'Lefapha la Penshene',
+    home_affairs_ministry: 'Lefapha la Litaba tsa Lehae',
+
+    // ==========================================
+    // TABS
+    // ==========================================
+    my_applications_tab: 'Likopo tsa Ka',
+    tax_clearance_tab: 'Tlhahlobo ea Lekhetho (e-TCC)',
+    paye_refund_tab: 'Pusetso ea PAYE',
+    learner_license_tab: 'Laesense ea Ho Ithuta',
+    drivers_license_tab: 'Laesense ea Ho Khanna',
+    vehicle_registration_tab: 'Ho Ngolisa Koloi',
+    police_clearance_tab: 'Tlhatlhobo ea Sepolesa',
+    report_crime_tab: 'Tlaleha Tlolo ea Molao',
+    new_passport_tab: 'Phasepoto e Ncha',
+    renewal_tab: 'Nchafatso',
+    old_age_pension_tab: 'Penshene ea Botsofali',
+    disability_grant_tab: 'Thuso ea Bokooa',
+
+    // ==========================================
+    // FINANCE
+    // ==========================================
+    business_name: 'Lebitso la Khoebo',
+    tin: 'Nomoro ea Boitsebiso ba Lekhetho (TIN)',
+    purpose: 'Sepheo',
+    is_new_business: 'Ke khoebo e ncha',
+    employer: 'Mohiri',
+    amount_maloti: 'Chelete (Maloti)',
+    have_form_p9: 'Ke na le Foromo P9 ho tsoa ho mohiri oa ka',
+
+    // ==========================================
+    // TRAFFIC
+    // ==========================================
+    vehicle_type: 'Mofuta oa Koloi',
+    standard_car: 'Koloi e Tloaelehileng',
+    motorcycle: 'Sethuthuthu',
+    has_eye_test: 'Ke na le setifikeiti sa tlhahlobo ea mahlo',
+    has_photos: 'Ke na le linepe tse 2 tsa phasepoto',
+    license_code: 'Khoutu ea Laesense',
+    transmission: 'Phetiso',
+    manual: 'Ka Letsoho',
+    automatic: 'E Iketsetsang',
+    has_learner: 'Ke na le Laesense ea Ho Ithuta',
+    has_certificate: 'Ke na le Setifikeiti sa Bokhoni',
+    plate_number: 'Nomoro ea Plate',
+    year: 'Selemo',
+    make: 'Mofuta',
+    model: 'Mokhoa',
+    chassis_number: 'Nomoro ea Chassis',
+    has_customs: 'Ke na le tumello ea lekhetho la thepa',
+    has_vat: 'Ke na le tumello ea VAT ho tsoa ho RSL',
+
+    // ==========================================
+    // POLICE
+    // ==========================================
+    destination_country: 'Naha eo U Eang Ho Eona',
+    has_id_copy: "Ke na le Nomoro ea Ka ea Boitsebiso ea 'nete",
+    crime_type: 'Mofuta oa Tlolo ea Molao',
+    location: 'Sebaka',
+    date_of_incident: 'Letsatsi la Ketsahalo',
+    description: 'Tlhaloso',
+    has_evidence: 'Ke na le bopaki',
+    select: '-- Khetha --',
+
+    // ==========================================
+    // PASSPORT
+    // ==========================================
+    passport_type: 'Mofuta oa Phasepoto',
+    ordinary: 'E Tloaelehileng',
+    diplomatic: 'Ea Bodiplomate',
+    passport_service_type: 'Ea Tšebeletso',
+    has_birth_certificate: 'Ke na le setifikeiti sa tsoalo',
+    old_passport_number: 'Nomoro ea Phasepoto ea Khale',
+    has_old_passport: 'Ke na le phasepoto ea ka ea khale',
+
+    // ==========================================
+    // PENSIONS
+    // ==========================================
+    bank_account: 'Nomoro ea Akhaonto ea Banka',
+    has_bank_statement: 'Ke na le setatemente sa banka',
+    disability_type: 'Mofuta oa Bokooa',
+    has_medical_report: 'Ke na le tlaleho ea bongaka',
+
+    // ==========================================
+    // APPOINTMENTS
+    // ==========================================
+    step_department: '1. Lefapha le Tšebeletso',
+    step_branch: '2. Lekala le Letsatsi',
+    step_time: '3. Nako',
+    step_confirm: '4. Netefatsa',
+    which_department: 'Ke lefapha lefe leo u hlokang ho le etela?',
+    which_service: 'Ke tšebeletso efe?',
+    branch: 'Lekala',
+    date: 'Letsatsi',
+    time: 'Nako',
+    select_branch_date: 'Hokae le neng?',
+    select_time_slot: 'Ke nako efe e u loketseng?',
+    review_appointment: 'Netefatsa kopano ea hau',
+    service_type: 'Mofuta oa Tšebeletso',
+    appointment_confirmed: 'Kopano e netefalitsoe!',
+    appointment_cancelled: 'Kopano e hlakotsoe',
+    no_appointments: 'Ha u na likopano tse behiloeng',
+    checking_availability: 'Ho hlahloba ho fumaneha...',
+    slots_left: 'li setseng',
+    full: 'E TLETSE',
+
+    // ==========================================
+    // APPLICATION STATUS
+    // ==========================================
+    status: 'Boemo',
+    reference: 'Referense',
+    service: 'Tšebeletso',
+    submitted: 'E Romiloe',
+    action: 'Ketso',
+    pending: 'E Emetse',
+    approved: 'E Amohetsoe',
+    rejected: 'E Hanetsoe',
+    processing: 'E Sebetsa',
+    completed: 'E Felile',
+    booked: 'E Behiloeng',
+    cancelled: 'E Hlakotsoe',
+    no_applications_yet: 'Ha ho likopo hajoale.',
+    loading: 'Ho kenya...',
+    loading_applications: 'Ho kenya likopo...',
+    reference_number: 'Nomoro ea Referense',
+    issue_date: 'Letsatsi la ho Fana',
+    valid_until: 'E Sebetsa ho fihlela',
+
+    // ==========================================
+    // NOTIFICATIONS
+    // ==========================================
+    unread_notifications: 'litsebiso tse sa baloang',
+    notification_help: 'U tla tsebisoa ha likopo tsa hau li fetoha',
+    no_notifications: 'Ha ho litsebiso hajoale',
+    no_unread: 'Ha ho litsebiso tse sa baloang',
+    no_read: 'Ha ho litsebiso tse baliloeng',
+    view_all_notifications: 'Sheba litsebiso tsohle',
+    filter_all: 'Tsohle',
+    filter_unread: 'Tse sa Baloang',
+    filter_read: 'Tse Baliloeng',
+
+    // ==========================================
+    // ACCESS HISTORY
+    // ==========================================
+    access_history: 'Nalane ea Phihlello',
+    who_accessed_my_data: 'Ke Mang ea Shebileng Boitsebiso ba Ka',
+    access_help: "Nako e 'ngoe le e 'ngoe ha lefapha la mmuso le fumana boitsebiso ba hau, e ngolisoa mona",
+    department: 'Lefapha',
+    staff: 'Basebetsi',
+    date_time: 'Letsatsi le Nako',
+    no_access_records: 'Ha ho motho ea fumaneng boitsebiso ba hau',
+
+    // ==========================================
+    // STAFF PAGES
+    // ==========================================
+    staff_dashboard_welcome: 'Rea u amohela',
+    role_permissions: 'Karolo le Litokelo',
+    role_help: 'U ka sheba, amohela, hana, kapa u kopa tlhaloso e eketsehileng',
+    role_restriction: 'U ke ke ua etsa likopo kapa ua fumana litlaleho tsa mafapha a mang',
+    your_services: 'Litšebeletso tsa Hau',
+
+    // ==========================================
+    // ANALYTICS
+    // ==========================================
+    total_applications: 'Kakaretso ea Likopo',
+    approval_rate: 'Sekhahla sa ho Amohela',
+    avg_processing: 'Nako e Tloaelehileng',
+    processed: 'E Sebetsitsoeng',
+    apps_per_day: 'Likopo ka Letsatsi (Matsatsi a 14)',
+    status_breakdown: 'Karohano ea Boemo',
+    top_services: 'Litšebeletso tse Holimo',
+    insights: 'Tlhahlobo',
+
+    // ==========================================
+    // CERTIFICATE
+    // ==========================================
+    certificate: 'Setifikeiti',
+    government_of_lesotho_full: 'Mmuso oa Lesotho',
+    this_certifies_that: 'Sena se netefatsa hore',
+    has_been_granted: "O filoe setifikeiti sena ho latela melao ea 'Muso oa Lesotho",
+    scan_qr: 'Skena khoutu ena ea QR ho netefatsa setifikeiti sena',
+    print_save_pdf: 'Hatisa / Boloka e le PDF',
+    invalid_certificate: 'Setifikeiti ha se Sebetsa',
+    expired_certificate: 'Setifikeiti se Felile',
+    authentic_certificate: 'Setifikeiti se Netefetsehile',
+    certificate_not_found: 'Setifikeiti ha se Fumanehe',
+
+    // ==========================================
+    // VERIFY PAGE
+    // ==========================================
+    certificate_verification: 'Netefatso ea Setifikeiti',
+    issued_to: 'E Filoe',
+    issued_by: 'E Filoe ke',
+    verifying: 'Ho netefatsa setifikeiti...',
+
+    // ==========================================
+    // LANGUAGE
+    // ==========================================
+    language: 'Puo',
+    english: 'Senyesemane',
+    sesotho: 'Sesotho',
+    switch_to_english: 'Switch to English',
+    switch_to_sesotho: 'Fetolela ho Sesotho',
+  },
+};

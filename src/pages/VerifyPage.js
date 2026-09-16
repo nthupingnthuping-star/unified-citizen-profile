@@ -40,7 +40,7 @@ const VerifyPage = () => {
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundImage: 'url(/assets/images/government-building.jpg)',
+      backgroundImage: 'url(assets/images/government-building.jpg)',
       backgroundSize: 'cover',
       backgroundPosition: 'center',
       display: 'flex',
@@ -58,7 +58,7 @@ const VerifyPage = () => {
         position: 'relative', maxWidth: 600, width: '100%',
       }}>
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <img src="/assets/logos/lesotho-coat-of-arms.png" alt="Lesotho"
+          <img src={`${process.env.PUBLIC_URL}/assets/logos/lesotho-coat-of-arms.png`} alt="Lesotho"
             style={{ height: 80, marginBottom: 10 }}
             onError={(e) => { e.target.style.display = 'none'; }} />
           <h1 style={{ color: 'white', margin: 0, fontSize: 24 }}>Certificate Verification</h1>
