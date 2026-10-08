@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { registerCitizen } from '../../firebase/auth';
 import { useLanguage } from '../../i18n/LanguageContext';
 import Alert from '../common/Alert';
+import { assetPath } from '../../utils/assetPath';
+import LanguageToggleLight from '../common/LanguageToggleLight';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -71,32 +73,81 @@ const Register = () => {
     return (
       <div style={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #eef4fb 0%, #ffffff 100%)',
+        position: 'relative',
+        backgroundImage: `url(${assetPath('/assets/images/government-building.jpg')})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         padding: 20,
+        overflow: 'hidden',
       }}>
         <div style={{
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(135deg, rgba(0,51,102,0.92) 0%, rgba(0,85,170,0.85) 50%, rgba(0,51,102,0.92) 100%)',
+          backgroundSize: '200% 200%',
+          animation: 'gradientShift 12s ease infinite',
+        }} />
+        <div style={{
+          position: 'absolute', top: '12%', left: '8%',
+          width: 220, height: 220, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(255,204,0,0.22) 0%, transparent 70%)',
+          animation: 'floatY 7s ease-in-out infinite',
+          pointerEvents: 'none',
+        }} />
+        <div style={{
+          position: 'absolute', bottom: '10%', right: '10%',
+          width: 260, height: 260, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(179,212,255,0.2) 0%, transparent 70%)',
+          animation: 'floatY 9s ease-in-out infinite reverse',
+          pointerEvents: 'none',
+        }} />
+
+        <div style={{ position: 'absolute', top: 20, right: 20, zIndex: 20 }}>
+          <LanguageToggleLight />
+        </div>
+
+        <style>{`
+          @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50%      { background-position: 100% 50%; }
+          }
+          @keyframes floatY {
+            0%, 100% { transform: translateY(0); }
+            50%      { transform: translateY(-14px); }
+          }
+          @keyframes cardEnter {
+            from { opacity: 0; transform: translateY(18px) scale(0.98); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+          }
+        `}</style>
+
+        <div style={{
+          position: 'relative',
           background: 'white',
-          borderRadius: 12,
+          borderRadius: 16,
           padding: 40,
           maxWidth: 520,
           width: '100%',
-          boxShadow: '0 8px 32px rgba(0, 51, 102, 0.12)',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.25)',
           textAlign: 'center',
+          animation: 'cardEnter 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both',
+          zIndex: 2,
         }}>
           <div style={{
-            width: 72,
-            height: 72,
+            width: 80,
+            height: 80,
             borderRadius: '50%',
             background: 'linear-gradient(135deg, #003366 0%, #0055aa 100%)',
             color: 'white',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 36,
+            fontSize: 38,
             margin: '0 auto 24px',
+            boxShadow: '0 8px 24px rgba(0, 51, 102, 0.3)',
           }}>
             ✉️
           </div>
@@ -112,13 +163,14 @@ const Register = () => {
           <div style={{
             background: '#f0f6ff',
             border: '1px solid #cce0ff',
-            borderRadius: 6,
+            borderRadius: 8,
             padding: 14,
             marginBottom: 24,
             fontFamily: 'monospace',
             fontSize: 15,
             fontWeight: 'bold',
             color: '#003366',
+            wordBreak: 'break-all',
           }}>
             {registeredEmail}
           </div>
@@ -131,7 +183,7 @@ const Register = () => {
           <div style={{
             background: '#fff8e0',
             border: '1px solid #ffe08a',
-            borderRadius: 6,
+            borderRadius: 8,
             padding: 14,
             fontSize: 13,
             color: '#7a5a00',
@@ -142,22 +194,39 @@ const Register = () => {
             It may take up to 2 minutes to arrive.
           </div>
 
-          <Link
-            to="/login"
-            style={{
-              display: 'inline-block',
-              background: 'linear-gradient(135deg, #003366 0%, #0055aa 100%)',
-              color: 'white',
-              padding: '12px 32px',
-              borderRadius: 999,
-              textDecoration: 'none',
-              fontSize: 15,
-              fontWeight: 'bold',
-              boxShadow: '0 4px 14px rgba(0, 51, 102, 0.25)',
-            }}
-          >
-            Go to Login
-          </Link>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Link
+              to="/login"
+              style={{
+                display: 'inline-block',
+                background: 'linear-gradient(135deg, #003366 0%, #0055aa 100%)',
+                color: 'white',
+                padding: '12px 28px',
+                borderRadius: 999,
+                textDecoration: 'none',
+                fontSize: 14,
+                fontWeight: 'bold',
+                boxShadow: '0 4px 14px rgba(0, 51, 102, 0.25)',
+              }}
+            >
+              Go to Login
+            </Link>
+            <Link
+              to="/"
+              style={{
+                display: 'inline-block',
+                background: 'white',
+                color: '#003366',
+                border: '1px solid #003366',
+                padding: '11px 24px',
+                borderRadius: 999,
+                textDecoration: 'none',
+                fontSize: 14,
+              }}
+            >
+              ← Back to Home
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -167,22 +236,142 @@ const Register = () => {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #eef4fb 0%, #ffffff 100%)',
+      position: 'relative',
+      backgroundImage: `url(${assetPath('/assets/images/government-building.jpg')})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundAttachment: 'fixed',
       padding: 30,
       display: 'flex',
       justifyContent: 'center',
+      overflow: 'hidden',
     }}>
       <div style={{
+        position: 'absolute', inset: 0,
+        background: 'linear-gradient(135deg, rgba(0,51,102,0.92) 0%, rgba(0,85,170,0.85) 50%, rgba(0,51,102,0.92) 100%)',
+        backgroundSize: '200% 200%',
+        animation: 'gradientShift 12s ease infinite',
+      }} />
+      <div style={{
+        position: 'absolute', top: '8%', right: '6%',
+        width: 260, height: 260, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(255,204,0,0.2) 0%, transparent 70%)',
+        animation: 'floatY 8s ease-in-out infinite',
+        pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute', bottom: '6%', left: '6%',
+        width: 300, height: 300, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(179,212,255,0.18) 0%, transparent 70%)',
+        animation: 'floatY 10s ease-in-out infinite reverse',
+        pointerEvents: 'none',
+      }} />
+
+      <div style={{
+        position: 'absolute', top: 20, right: 20, zIndex: 20,
+        display: 'flex', alignItems: 'center', gap: 12,
+      }}>
+        <LanguageToggleLight />
+        <Link to="/" style={{
+          background: 'rgba(255,255,255,0.12)',
+          border: '1px solid rgba(255,255,255,0.35)',
+          color: 'white',
+          padding: '7px 16px',
+          borderRadius: 999,
+          fontSize: 13,
+          fontWeight: 'bold',
+          textDecoration: 'none',
+          backdropFilter: 'blur(8px)',
+          transition: 'transform 0.2s ease, background 0.2s ease',
+        }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.22)';
+            e.currentTarget.style.transform = 'translateY(-1px)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
+            e.currentTarget.style.transform = 'translateY(0)';
+          }}
+        >
+          ← {t('back_to_home') || 'Back to Home'}
+        </Link>
+      </div>
+
+      <style>{`
+        @keyframes gradientShift {
+          0%, 100% { background-position: 0% 50%; }
+          50%      { background-position: 100% 50%; }
+        }
+        @keyframes floatY {
+          0%, 100% { transform: translateY(0); }
+          50%      { transform: translateY(-14px); }
+        }
+        @keyframes cardEnter {
+          from { opacity: 0; transform: translateY(18px) scale(0.98); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes shimmer {
+          0%   { left: -100%; }
+          60%  { left: 100%; }
+          100% { left: 100%; }
+        }
+        .auth-input {
+          transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        }
+        .auth-input:focus {
+          outline: none;
+          border-color: #0055aa;
+          box-shadow: 0 0 0 4px rgba(0, 85, 170, 0.12);
+          background: #fbfdff;
+        }
+        .auth-submit {
+          position: relative;
+          overflow: hidden;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .auth-submit:not(:disabled):hover {
+          transform: translateY(-2px);
+          box-shadow: 0 10px 24px rgba(0, 51, 102, 0.32) !important;
+        }
+        .auth-submit:not(:disabled)::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%);
+          animation: shimmer 3s ease-in-out infinite;
+        }
+      `}</style>
+
+      <div style={{
+        position: 'relative',
         background: 'white',
-        borderRadius: 12,
+        borderRadius: 16,
         padding: 40,
         maxWidth: 640,
         width: '100%',
-        boxShadow: '0 8px 32px rgba(0, 51, 102, 0.12)',
+        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.25)',
         alignSelf: 'flex-start',
+        marginTop: 20,
+        marginBottom: 20,
+        animation: 'cardEnter 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both',
+        zIndex: 2,
       }}>
-        <h1 style={{ color: '#003366', marginTop: 0 }}>Create your citizen profile</h1>
-        <p style={{ color: '#666', fontSize: 14, marginTop: 0 }}>
+        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+          <img
+            src={assetPath('/assets/logos/lesotho-coat-of-arms.png')}
+            alt="Lesotho"
+            style={{ height: 60, marginBottom: 8 }}
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+        </div>
+
+        <h1 style={{ color: '#003366', marginTop: 0, textAlign: 'center', fontSize: 26 }}>
+          Create your citizen profile
+        </h1>
+        <p style={{ color: '#666', fontSize: 14, marginTop: 0, textAlign: 'center' }}>
           You will receive a verification email. Click the link inside to activate your account.
         </p>
 
@@ -198,7 +387,12 @@ const Register = () => {
 
           <div style={{ marginBottom: 18 }}>
             <label style={labelStyle}>Gender *</label>
-            <select value={form.gender} onChange={(e) => update('gender', e.target.value)} style={inputStyle}>
+            <select
+              className="auth-input"
+              value={form.gender}
+              onChange={(e) => update('gender', e.target.value)}
+              style={inputStyle}
+            >
               <option value="Male">Male</option>
               <option value="Female">Female</option>
             </select>
@@ -210,6 +404,7 @@ const Register = () => {
           <button
             type="submit"
             disabled={loading}
+            className="auth-submit"
             style={{
               width: '100%',
               background: loading ? '#999' : 'linear-gradient(135deg, #003366 0%, #0055aa 100%)',
@@ -229,7 +424,14 @@ const Register = () => {
         </form>
 
         <p style={{ textAlign: 'center', marginTop: 24, fontSize: 14, color: '#666' }}>
-          Already have an account? <Link to="/login" style={{ color: '#0055aa', fontWeight: 'bold' }}>Log in</Link>
+          Already have an account?{' '}
+          <Link to="/login" style={{ color: '#0055aa', fontWeight: 'bold' }}>Log in</Link>
+        </p>
+
+        <p style={{ textAlign: 'center', marginTop: 12, fontSize: 13 }}>
+          <Link to="/" style={{ color: '#003366', fontWeight: 'bold', textDecoration: 'none' }}>
+            ← Back to Home
+          </Link>
         </p>
       </div>
     </div>
@@ -240,6 +442,7 @@ const Field = ({ label, value, onChange, type = 'text', required }) => (
   <div style={{ marginBottom: 18 }}>
     <label style={labelStyle}>{label}{required ? ' *' : ''}</label>
     <input
+      className="auth-input"
       type={type}
       value={value}
       onChange={(e) => onChange(e.target.value)}
@@ -252,11 +455,12 @@ const Field = ({ label, value, onChange, type = 'text', required }) => (
 const labelStyle = { display: 'block', fontSize: 13, fontWeight: 'bold', color: '#333', marginBottom: 6 };
 const inputStyle = {
   width: '100%',
-  padding: 10,
+  padding: 12,
   border: '1px solid #ccc',
-  borderRadius: 6,
+  borderRadius: 8,
   fontSize: 14,
   boxSizing: 'border-box',
+  background: 'white',
 };
 
 export default Register;
