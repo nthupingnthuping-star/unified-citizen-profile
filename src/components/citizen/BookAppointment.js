@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../i18n/LanguageContext';
 import {
   bookAppointment,
   getAvailableDates,
@@ -19,14 +20,15 @@ import Alert from '../common/Alert';
 const BookAppointment = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const { t } = useLanguage();
 
   const dates = getAvailableDates();
 
   const appointmentDepartments = [
-    { id: 1, name: 'Home Affairs' },
-    { id: 2, name: 'Traffic' },
-    { id: 5, name: 'Police' },
-    { id: 6, name: 'Passport' },
+    { id: 1, name: 'Home Affairs', nameKey: 'home_affairs_ministry' },
+    { id: 2, name: 'Traffic', nameKey: 'traffic_department' },
+    { id: 5, name: 'Police', nameKey: 'police_service' },
+    { id: 6, name: 'Passport', nameKey: 'passport_office' },
   ];
 
   const [step, setStep] = useState(1);
@@ -94,7 +96,7 @@ const BookAppointment = () => {
         time_slot: timeSlot,
       });
 
-      setMessage('✓ Appointment confirmed!');
+      setMessage(`✓ ${t('appointment_confirmed')}`);
       setTimeout(() => navigate('/appointments'), 1500);
     } catch (err) {
       setMessage(`✗ ${err.message}`);
@@ -121,15 +123,13 @@ const BookAppointment = () => {
   });
 
   return (
-    <Layout title="📅 Book a Visit">
+    <Layout title={t('book_appointment')}>
       <Link to="/appointments" style={{ color: '#003366', fontSize: 13 }}>
-        ← Back to My Appointments
+        ← {t('my_appointments')}
       </Link>
 
       <Alert type="info">
-        Book an in-person visit for services that require a physical presence
-        (biometrics, roadworthy tests, exams, document collection).
-        Each time slot has limited capacity.
+        {t('which_department')}
       </Alert>
 
       {message && (
@@ -139,14 +139,14 @@ const BookAppointment = () => {
       )}
 
       <div style={{ display: 'flex', gap: 10, marginTop: 20, marginBottom: 25, flexWrap: 'wrap' }}>
-        <div style={stepStyle(1)}>1. Department & Service</div>
-        <div style={stepStyle(2)}>2. Branch & Date</div>
-        <div style={stepStyle(3)}>3. Time Slot</div>
-        <div style={stepStyle(4)}>4. Confirm</div>
+        <div style={stepStyle(1)}>{t('step_department')}</div>
+        <div style={stepStyle(2)}>{t('step_branch')}</div>
+        <div style={stepStyle(3)}>{t('step_time')}</div>
+        <div style={stepStyle(4)}>{t('step_confirm')}</div>
       </div>
 
       {step === 1 && (
-        <Card title="Which department do you need to visit?">
+        <Card title={t('which_department')}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 20 }}>
             {appointmentDepartments.map((dept) => (
               <button
@@ -164,13 +164,13 @@ const BookAppointment = () => {
                   color: '#003366',
                 }}
               >
-                {dept.name}
+                {t(dept.nameKey)}
               </button>
             ))}
           </div>
 
           <div style={{ marginBottom: 20 }}>
-            <label style={labelStyle}>Which service?</label>
+            <label style={labelStyle}>{t('which_service')}</label>
             <select
               value={serviceValue}
               onChange={(e) => setServiceValue(e.target.value)}
@@ -183,22 +183,22 @@ const BookAppointment = () => {
           </div>
 
           <Button onClick={() => setStep(2)} disabled={!serviceValue} fullWidth>
-            Next →
+            {t('next')} →
           </Button>
         </Card>
       )}
 
       {step === 2 && (
-        <Card title="Where and when?">
+        <Card title={t('select_branch_date')}>
           <div style={{ marginBottom: 20 }}>
-            <label style={labelStyle}>Branch</label>
+            <label style={labelStyle}>{t('branch')}</label>
             <select value={branch} onChange={(e) => setBranch(e.target.value)} style={inputStyle}>
               {BRANCHES.map((b) => <option key={b}>{b}</option>)}
             </select>
           </div>
 
           <div style={{ marginBottom: 20 }}>
-            <label style={labelStyle}>Date (next 14 working days)</label>
+            <label style={labelStyle}>{t('date')}</label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8, marginTop: 8 }}>
               {dates.map((d) => (
                 <button
@@ -223,35 +223,34 @@ const BookAppointment = () => {
 
           <div style={{ display: 'flex', gap: 10 }}>
             <Button variant="secondary" onClick={() => setStep(1)} style={{ flex: 1 }}>
-              ← Back
+              ← {t('back')}
             </Button>
             <Button onClick={() => setStep(3)} style={{ flex: 2 }}>
-              Next →
+              {t('next')} →
             </Button>
           </div>
         </Card>
       )}
 
       {step === 3 && (
-        <Card title="What time works for you?">
+        <Card title={t('select_time_slot')}>
           {checkingSlots ? (
-            <p>Checking availability...</p>
+            <p>{t('checking_availability')}</p>
           ) : isDayFull ? (
             <Alert type="warning">
-              This branch is fully booked on this date (max {APPOINTMENT_CAPACITY.PER_DAY} per day).
-              Please go back and choose another date.
+              {t('full')} ({APPOINTMENT_CAPACITY.PER_DAY} max per day).
             </Alert>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 20 }}>
-              {TIME_SLOTS.map((t) => {
-                const slot = slotAvailability[t] || { remaining: APPOINTMENT_CAPACITY.PER_SLOT, isFull: false };
+              {TIME_SLOTS.map((tSlot) => {
+                const slot = slotAvailability[tSlot] || { remaining: APPOINTMENT_CAPACITY.PER_SLOT, isFull: false };
                 const isFull = slot.isFull;
-                const isSelected = t === timeSlot;
+                const isSelected = tSlot === timeSlot;
                 return (
                   <button
-                    key={t}
+                    key={tSlot}
                     disabled={isFull}
-                    onClick={() => setTimeSlot(t)}
+                    onClick={() => setTimeSlot(tSlot)}
                     style={{
                       padding: '10px 8px',
                       border: isSelected ? '2px solid #003366' : '1px solid #ddd',
@@ -264,14 +263,14 @@ const BookAppointment = () => {
                       textAlign: 'center',
                     }}
                   >
-                    <div style={{ textDecoration: isFull ? 'line-through' : 'none' }}>{t}</div>
+                    <div style={{ textDecoration: isFull ? 'line-through' : 'none' }}>{tSlot}</div>
                     <div style={{
                       fontSize: 10,
                       fontWeight: 'normal',
                       marginTop: 2,
                       color: isFull ? '#999' : isSelected ? '#b3d4ff' : '#666',
                     }}>
-                      {isFull ? 'FULL' : `${slot.remaining} left`}
+                      {isFull ? t('full') : `${slot.remaining} ${t('slots_left')}`}
                     </div>
                   </button>
                 );
@@ -281,41 +280,41 @@ const BookAppointment = () => {
 
           <div style={{ display: 'flex', gap: 10 }}>
             <Button variant="secondary" onClick={() => setStep(2)} style={{ flex: 1 }}>
-              ← Back
+              ← {t('back')}
             </Button>
             <Button onClick={() => setStep(4)} disabled={!timeSlot || isDayFull} style={{ flex: 2 }}>
-              Next →
+              {t('next')} →
             </Button>
           </div>
         </Card>
       )}
 
       {step === 4 && (
-        <Card title="Confirm your appointment">
+        <Card title={t('review_appointment')}>
           <div style={{ background: '#f9f9f9', padding: 20, borderRadius: 8, marginBottom: 20 }}>
             <p style={{ margin: '8px 0' }}>
-              <strong>Department:</strong> {DEPARTMENT_NAMES[departmentId]}
+              <strong>{t('department')}:</strong> {DEPARTMENT_NAMES[departmentId]}
             </p>
             <p style={{ margin: '8px 0' }}>
-              <strong>Service:</strong> {selectedService?.label}
+              <strong>{t('service_type')}:</strong> {selectedService?.label}
             </p>
             <p style={{ margin: '8px 0' }}>
-              <strong>Branch:</strong> {branch}
+              <strong>{t('branch')}:</strong> {branch}
             </p>
             <p style={{ margin: '8px 0' }}>
-              <strong>Date:</strong> {dateLabel(date)}
+              <strong>{t('date')}:</strong> {dateLabel(date)}
             </p>
             <p style={{ margin: '8px 0' }}>
-              <strong>Time:</strong> {timeSlot}
+              <strong>{t('time')}:</strong> {timeSlot}
             </p>
           </div>
 
           <div style={{ display: 'flex', gap: 10 }}>
             <Button variant="secondary" onClick={() => setStep(3)} style={{ flex: 1 }}>
-              ← Back
+              ← {t('back')}
             </Button>
             <Button onClick={handleConfirm} disabled={loading} style={{ flex: 2 }}>
-              {loading ? 'Booking...' : 'Confirm Appointment'}
+              {loading ? t('loading') : t('confirm_appointment')}
             </Button>
           </div>
         </Card>
@@ -326,8 +325,12 @@ const BookAppointment = () => {
 
 const labelStyle = { fontSize: 13, color: '#333', fontWeight: 'bold' };
 const inputStyle = {
-  width: '100%', padding: 12, border: '1px solid #ccc',
-  borderRadius: 4, fontSize: 14, marginTop: 5,
+  width: '100%',
+  padding: 12,
+  border: '1px solid #ccc',
+  borderRadius: 4,
+  fontSize: 14,
+  marginTop: 5,
 };
 
 export default BookAppointment;

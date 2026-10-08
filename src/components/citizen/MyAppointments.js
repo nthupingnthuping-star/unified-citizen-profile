@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { getMyAppointments, cancelAppointment, DEPARTMENT_NAMES } from '../../firebase/db';
 import Layout from '../common/Layout';
 import Card from '../common/Card';
@@ -10,6 +11,7 @@ import Badge from '../common/Badge';
 
 const MyAppointments = () => {
   const { profile } = useAuth();
+  const { t } = useLanguage();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
@@ -31,10 +33,10 @@ const MyAppointments = () => {
   }, [profile, refreshKey]);
 
   const handleCancel = async (id) => {
-    if (!window.confirm('Cancel this appointment?')) return;
+    if (!window.confirm(t('cancel_appointment') + '?')) return;
     try {
       await cancelAppointment(id);
-      setMessage('✓ Appointment cancelled');
+      setMessage(`✓ ${t('appointment_cancelled')}`);
       setRefreshKey((k) => k + 1);
     } catch (err) {
       setMessage(`✗ ${err.message}`);
@@ -55,9 +57,9 @@ const MyAppointments = () => {
   };
 
   return (
-    <Layout title="📅 My Appointments">
+    <Layout title={t('my_appointments_page')}>
       <Alert type="info">
-        These are your booked visits to government offices. Arrive 15 minutes early with your National ID.
+        {t('no_appointments')} — {t('book_a_visit')}.
       </Alert>
 
       {message && (
@@ -68,15 +70,15 @@ const MyAppointments = () => {
 
       <div style={{ marginBottom: 20 }}>
         <Link to="/appointments/book">
-          <Button size="large">➕ Book a New Visit</Button>
+          <Button size="large">{t('book_new_visit')}</Button>
         </Link>
       </div>
 
       {loading ? (
-        <Card><p>Loading appointments...</p></Card>
+        <Card><p>{t('loading')}</p></Card>
       ) : appointments.length === 0 ? (
         <Card>
-          <p style={{ color: '#666' }}>You have no appointments booked yet.</p>
+          <p style={{ color: '#666' }}>{t('no_appointments')}</p>
         </Card>
       ) : (
         <div style={{ display: 'grid', gap: 15 }}>
@@ -88,14 +90,14 @@ const MyAppointments = () => {
                     {appt.service_type}
                   </h3>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 14, color: '#555' }}>
-                    <div><strong>Department:</strong> {DEPARTMENT_NAMES[appt.department_id]}</div>
-                    <div><strong>Branch:</strong> {appt.branch}</div>
-                    <div><strong>Date:</strong> {formatDate(appt.date)}</div>
-                    <div><strong>Time:</strong> {appt.time_slot}</div>
+                    <div><strong>{t('department')}:</strong> {DEPARTMENT_NAMES[appt.department_id]}</div>
+                    <div><strong>{t('branch')}:</strong> {appt.branch}</div>
+                    <div><strong>{t('date')}:</strong> {formatDate(appt.date)}</div>
+                    <div><strong>{t('time')}:</strong> {appt.time_slot}</div>
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <Badge color={statusColor(appt.status)}>{appt.status}</Badge>
+                  <Badge color={statusColor(appt.status)}>{t(appt.status)}</Badge>
                   {appt.status === 'booked' && (
                     <div style={{ marginTop: 10 }}>
                       <Button
@@ -103,7 +105,7 @@ const MyAppointments = () => {
                         variant="danger"
                         onClick={() => handleCancel(appt.id)}
                       >
-                        Cancel
+                        {t('cancel')}
                       </Button>
                     </div>
                   )}

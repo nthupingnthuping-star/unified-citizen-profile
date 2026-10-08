@@ -4,6 +4,7 @@ import {
   signOut,
   onAuthStateChanged,
   updateProfile,
+  sendEmailVerification,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
@@ -23,14 +24,11 @@ export async function registerCitizen({
 }) {
   console.log('📝 Registering citizen:', email);
 
-  // Create auth account
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
   const user = userCredential.user;
 
-  // Update display name
   await updateProfile(user, { displayName: full_name });
 
-  // Save citizen profile to Firestore
   await setDoc(doc(db, 'citizens', user.uid), {
     uid: user.uid,
     email,
@@ -51,29 +49,65 @@ export async function registerCitizen({
     created_at: serverTimestamp(),
   });
 
+  // Send verification email
+  try {
+    await sendEmailVerification(user);
+    console.log('✉️ Verification email sent to', email);
+  } catch (err) {
+    console.error('Failed to send verification email:', err);
+  }
+
   console.log('✅ Citizen registered:', user.uid);
   return user;
 }
 
 // ============================================================
-// CITIZEN LOGIN
+// CITIZEN LOGIN — requires verified email
 // ============================================================
 export async function loginCitizen(email, password) {
   console.log('🔐 Citizen login:', email);
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
-  console.log('✅ Citizen logged in:', userCredential.user.uid);
-  return userCredential.user;
+  const user = userCredential.user;
+
+  // STRICT: block unverified citizen accounts
+  if (!user.emailVerified) {
+    await signOut(auth);
+    const err = new Error(
+      'Please verify your email address before logging in. Check your inbox for the verification link.'
+    );
+    err.code = 'auth/email-not-verified';
+    throw err;
+  }
+
+  console.log('✅ Citizen logged in:', user.uid);
+  return user;
 }
 
 // ============================================================
-// STAFF LOGIN
+// RESEND VERIFICATION EMAIL
+// ============================================================
+export async function resendVerificationEmail(email, password) {
+  const userCredential = await signInWithEmailAndPassword(auth, email, password);
+  const user = userCredential.user;
+
+  if (user.emailVerified) {
+    await signOut(auth);
+    throw new Error('This email is already verified. You can log in normally.');
+  }
+
+  await sendEmailVerification(user);
+  await signOut(auth);
+  return true;
+}
+
+// ============================================================
+// STAFF LOGIN — no email verification required
 // ============================================================
 export async function loginStaff(email, password) {
   console.log('🔐 Staff login:', email);
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
   const user = userCredential.user;
 
-  // Check that the user is actually staff
   const staffDoc = await getDoc(doc(db, 'citizens', user.uid));
 
   if (!staffDoc.exists()) {
@@ -86,6 +120,9 @@ export async function loginStaff(email, password) {
     await signOut(auth);
     throw new Error('This account is not a staff account');
   }
+
+  // Staff accounts are created by administrators, so they do not require
+  // email verification. Only self-registered citizens do.
 
   console.log('✅ Staff logged in:', user.uid, '| Dept:', data.department_id);
   return { user, staffData: data };

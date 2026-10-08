@@ -1,160 +1,73 @@
 import { useState } from 'react';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../firebase/firebase';
-import Button from '../components/common/Button';
-import Card from '../components/common/Card';
-import Alert from '../components/common/Alert';
-
-const SEED_PASSWORD = 'password123';
-
-const CITIZENS = [
-  {
-    email: 'thabo@email.com',
-    national_id: '1234567890123',
-    full_name: 'Thabo Mokoena',
-    date_of_birth: '1985-06-15',
-    gender: 'Male',
-    residential_address: 'Maseru West, Ha Hoohlo',
-    phone_number: '+266 5888 1234',
-    verified_by_home_affairs: true,
-  },
-  {
-    email: 'mamphe@email.com',
-    national_id: '9876543210987',
-    full_name: 'Mamphe Ramoholi',
-    date_of_birth: '1958-03-22',
-    gender: 'Female',
-    residential_address: 'Maseru East, Lithabaneng',
-    phone_number: '+266 5777 5678',
-    verified_by_home_affairs: true,
-  },
-  {
-    email: 'nthabiseng@email.com',
-    national_id: '5556667778889',
-    full_name: 'Nthabiseng Letsie',
-    date_of_birth: '1992-11-08',
-    gender: 'Female',
-    residential_address: 'Berea, Teyateyaneng',
-    phone_number: '+266 5999 9012',
-    verified_by_home_affairs: true,
-  },
-];
-
-const STAFF = [
-  { email: 'home_affairs_officer@ucps.gov.ls', full_name: 'Mpho Molapo', department_id: 1, role: 'supervisor' },
-  { email: 'traffic_officer@ucps.gov.ls', full_name: 'Teboho Mofokeng', department_id: 2, role: 'staff' },
-  { email: 'finance_officer@ucps.gov.ls', full_name: 'Palesa Thakane', department_id: 3, role: 'staff' },
-  { email: 'pension_officer@ucps.gov.ls', full_name: 'Mpho Ramoholi', department_id: 4, role: 'staff' },
-  { email: 'police_officer@ucps.gov.ls', full_name: 'Sello Mabote', department_id: 5, role: 'staff' },
-  { email: 'passport_officer@ucps.gov.ls', full_name: 'Refiloe Letsie', department_id: 6, role: 'staff' },
-];
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../firebase/db';
 
 const SeedPage = () => {
-  const [log, setLog] = useState([]);
-  const [running, setRunning] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const addLog = (msg) => setLog((prev) => [...prev, msg]);
-
-  const seedAll = async () => {
-    setRunning(true);
-    setLog([]);
-
-    addLog('🌱 Starting seed...');
-
-    // Seed citizens
-    for (const c of CITIZENS) {
-      try {
-        const cred = await createUserWithEmailAndPassword(auth, c.email, SEED_PASSWORD);
-        await setDoc(doc(db, 'citizens', cred.user.uid), {
-          uid: cred.user.uid,
-          email: c.email,
-          national_id: c.national_id,
-          full_name: c.full_name,
-          date_of_birth: c.date_of_birth,
-          gender: c.gender,
-          residential_address: c.residential_address,
-          phone_number: c.phone_number,
-          citizenship_status: 'Citizen',
-          verified_by_home_affairs: c.verified_by_home_affairs,
-          verification_date: c.verified_by_home_affairs ? serverTimestamp() : null,
-          verified_by: null,
-          type: 'citizen',
-          department_id: null,
-          role: null,
-          is_active: true,
-          created_at: serverTimestamp(),
-        });
-        addLog(`✅ Citizen: ${c.email}`);
-      } catch (err) {
-        addLog(`⚠️ Citizen ${c.email}: ${err.code || err.message}`);
+  const verifyExistingAccounts = async () => {
+    setLoading(true);
+    setMsg('');
+    try {
+      const snap = await getDocs(collection(db, 'citizens'));
+      let count = 0;
+      for (const docItem of snap.docs) {
+        const data = docItem.data();
+        if (data.type === 'staff') continue;
+        // We cannot set emailVerified from the client.
+        // Instead we set a custom field and rely on the login check.
+        // The actual emailVerified flag must be flipped via Firebase Console
+        // or via a Cloud Function. This button just logs what it found.
+        console.log('Citizen:', data.email, 'UID:', docItem.id);
+        count++;
       }
+      setMsg(`Found ${count} citizen accounts. To verify their emails, use the Firebase Console → Authentication → Users → click each user → Verify email.`);
+    } catch (err) {
+      console.error(err);
+      setMsg('Error: ' + err.message);
+    } finally {
+      setLoading(false);
     }
-
-    // Seed staff
-    for (const s of STAFF) {
-      try {
-        const cred = await createUserWithEmailAndPassword(auth, s.email, SEED_PASSWORD);
-        await setDoc(doc(db, 'citizens', cred.user.uid), {
-          uid: cred.user.uid,
-          email: s.email,
-          national_id: null,
-          full_name: s.full_name,
-          date_of_birth: null,
-          gender: null,
-          residential_address: '',
-          phone_number: '',
-          citizenship_status: 'Staff',
-          verified_by_home_affairs: true,
-          verification_date: serverTimestamp(),
-          verified_by: null,
-          type: 'staff',
-          department_id: s.department_id,
-          role: s.role,
-          is_active: true,
-          created_at: serverTimestamp(),
-        });
-        addLog(`✅ Staff: ${s.email} (dept ${s.department_id})`);
-      } catch (err) {
-        addLog(`⚠️ Staff ${s.email}: ${err.code || err.message}`);
-      }
-    }
-
-    addLog('🎉 Done!');
-    setRunning(false);
   };
 
   return (
-    <div style={{ padding: 40, maxWidth: 800, margin: '0 auto' }}>
-      <Card title="🌱 Seed Sample Data">
-        <Alert type="warning">
-          This creates sample citizens and staff accounts. Run it <strong>once</strong>.
-          If you run it again, duplicates will fail — that's fine.
-        </Alert>
+    <div style={{ padding: 40, maxWidth: 720, margin: '0 auto' }}>
+      <h1>Seed / Admin</h1>
+      <p style={{ color: '#666' }}>
+        Use this page for one-time setup tasks during the demo.
+      </p>
 
-        <p style={{ color: '#666', marginBottom: 20 }}>
-          It will create:
-        </p>
-        <ul style={{ color: '#333', marginBottom: 20 }}>
-          <li><strong>{CITIZENS.length} citizens</strong> (all verified)</li>
-          <li><strong>{STAFF.length} staff</strong> across all 6 departments</li>
-          <li>Password for all accounts: <code>{SEED_PASSWORD}</code></li>
-        </ul>
+      <div style={{ background: '#fff8e0', border: '1px solid #ffe08a', borderRadius: 6, padding: 16, marginBottom: 20, fontSize: 13, color: '#7a5a00' }}>
+        <strong>Note about verified emails:</strong> Firebase Auth requires each user to click a link
+        in their email to become verified. The client app cannot skip this. For the demo, use the
+        <strong> Firebase Console</strong> → <strong>Authentication → Users</strong>, then click
+        a user and mark them as verified manually. Or send them a real email and click the link
+        yourself.
+      </div>
 
-        <Button onClick={seedAll} disabled={running} size="large">
-          {running ? 'Seeding...' : '🚀 Run Seeder'}
-        </Button>
+      <button
+        onClick={verifyExistingAccounts}
+        disabled={loading}
+        style={{
+          background: loading ? '#999' : 'linear-gradient(135deg, #003366 0%, #0055aa 100%)',
+          color: 'white',
+          border: 'none',
+          padding: '12px 24px',
+          borderRadius: 999,
+          fontSize: 15,
+          fontWeight: 'bold',
+          cursor: loading ? 'not-allowed' : 'pointer',
+        }}
+      >
+        {loading ? 'Working...' : 'List all citizen accounts'}
+      </button>
 
-        {log.length > 0 && (
-          <div style={{
-            marginTop: 20, padding: 15, background: '#1a1a1a', color: '#0f0',
-            fontFamily: 'monospace', fontSize: 13, borderRadius: 6,
-            maxHeight: 400, overflowY: 'auto',
-          }}>
-            {log.map((line, i) => <div key={i}>{line}</div>)}
-          </div>
-        )}
-      </Card>
+      {msg && (
+        <div style={{ marginTop: 20, padding: 16, background: '#f0f6ff', border: '1px solid #cce0ff', borderRadius: 6, fontSize: 13, color: '#003366' }}>
+          {msg}
+        </div>
+      )}
     </div>
   );
 };

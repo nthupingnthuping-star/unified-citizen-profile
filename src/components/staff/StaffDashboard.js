@@ -1,31 +1,33 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../i18n/LanguageContext';
 import StaffLayout from '../common/StaffLayout';
 import Card from '../common/Card';
 
 const StaffDashboard = () => {
   const { profile } = useAuth();
+  const { t } = useLanguage();
 
   const departmentActions = {
-    1: [{ to: '/staff/home-affairs', label: 'Verification Queue', icon: '✅' }],
-    2: [{ to: '/staff/traffic', label: 'Application Queue', icon: '📄' }],
-    3: [{ to: '/staff/finance', label: 'Application Queue', icon: '📄' }],
-    4: [{ to: '/staff/pensions', label: 'Application Queue', icon: '📄' }],
-    5: [{ to: '/staff/police', label: 'Application Queue', icon: '📄' }],
-    6: [{ to: '/staff/passport', label: 'Application Queue', icon: '📌' }],
+    1: [{ to: '/staff/home-affairs', labelKey: 'verification_queue' }],
+    2: [{ to: '/staff/traffic', labelKey: 'application_queue' }],
+    3: [{ to: '/staff/finance', labelKey: 'application_queue' }],
+    4: [{ to: '/staff/pensions', labelKey: 'application_queue' }],
+    5: [{ to: '/staff/police', labelKey: 'application_queue' }],
+    6: [{ to: '/staff/passport', labelKey: 'application_queue' }],
   };
 
   const actions = departmentActions[profile?.department_id] || [];
 
   return (
-    <StaffLayout title={`Welcome, ${profile?.full_name}`}>
+    <StaffLayout title={`${t('staff_dashboard_welcome')}, ${profile?.full_name}`}>
       <p style={{ color: '#666', marginTop: 0 }}>
-        You are logged in as <strong>{profile?.role}</strong> at <strong>{profile?.citizenship_status === 'Staff' ? 'your department' : ''}</strong>.
+        {t('signed_in_as')} <strong>{profile?.role}</strong>
       </p>
 
-      <Card title="Your Services" style={{ marginTop: 20 }}>
+      <Card title={t('your_services')} style={{ marginTop: 20 }}>
         {actions.length === 0 ? (
-          <p style={{ color: '#666' }}>No actions available for your department.</p>
+          <p style={{ color: '#666' }}>{t('no_applications_yet')}</p>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 15, marginTop: 20 }}>
             {actions.map((a) => (
@@ -37,8 +39,8 @@ const StaffDashboard = () => {
                 textDecoration: 'none', color: '#1a1a5e',
                 fontWeight: 'bold', textAlign: 'center',
               }}>
-                <div style={{ fontSize: 32 }}>{a.icon}</div>
-                <div>{a.label}</div>
+                <div style={{ fontSize: 32 }}>📄</div>
+                <div>{t(a.labelKey)}</div>
               </Link>
             ))}
           </div>
@@ -49,12 +51,12 @@ const StaffDashboard = () => {
         background: '#e6f0fa', padding: 20, borderRadius: 8,
         marginTop: 25, border: '1px solid #b3d4f0',
       }}>
-        <strong style={{ color: '#1a1a5e' }}>ℹ️ Role & Permissions</strong>
+        <strong style={{ color: '#1a1a5e' }}>ℹ️ {t('role_permissions')}</strong>
         <p style={{ margin: '8px 0 0 0', color: '#333', fontSize: 14, lineHeight: 1.6 }}>
-          You can <strong>view, approve, reject, or request more info</strong> on applications submitted to your department.
+          {t('role_help')}
         </p>
         <p style={{ margin: '8px 0 0 0', color: '#666', fontSize: 13 }}>
-          You <strong>cannot</strong> create applications, edit citizen data, or access other ministries' records.
+          {t('role_restriction')}
         </p>
       </div>
     </StaffLayout>

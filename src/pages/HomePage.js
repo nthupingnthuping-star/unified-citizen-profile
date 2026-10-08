@@ -1,14 +1,18 @@
 import { Link } from 'react-router-dom';
+import { useLanguage } from '../i18n/LanguageContext';
 import { assetPath } from '../utils/assetPath';
+import LanguageToggleLight from '../components/common/LanguageToggleLight';
 
 const HomePage = () => {
+  const { t } = useLanguage();
+
   const departments = [
-    { logo: assetPath('/assets/logos/home-affairs.png'), name: 'Home Affairs', desc: 'Identity verification & citizenship' },
-    { logo: assetPath('/assets/logos/finance.png'), name: 'Finance / RSL', desc: 'Tax clearance & PAYE refunds' },
-    { logo: assetPath('/assets/logos/traffic.png'), name: 'Traffic', desc: "Driver's licenses & traffic fines" },
-    { logo: assetPath('/assets/logos/police.png'), name: 'Police', desc: 'Clearances & crime reports' },
-    { logo: assetPath('/assets/logos/passport.png'), name: 'Passport', desc: 'New passports & renewals' },
-    { logo: assetPath('/assets/logos/pensions.png'), name: 'Pensions', desc: 'Pension registration & payouts' },
+    { logo: assetPath('/assets/logos/home-affairs.png'), nameKey: 'ministry_home_affairs', descKey: 'ministry_home_affairs_desc' },
+    { logo: assetPath('/assets/logos/finance.png'), nameKey: 'ministry_finance', descKey: 'ministry_finance_desc' },
+    { logo: assetPath('/assets/logos/traffic.png'), nameKey: 'ministry_traffic', descKey: 'ministry_traffic_desc' },
+    { logo: assetPath('/assets/logos/police.png'), nameKey: 'ministry_police', descKey: 'ministry_police_desc' },
+    { logo: assetPath('/assets/logos/passport.png'), nameKey: 'ministry_passport', descKey: 'ministry_passport_desc' },
+    { logo: assetPath('/assets/logos/pensions.png'), nameKey: 'ministry_pensions', descKey: 'ministry_pensions_desc' },
   ];
 
   return (
@@ -26,19 +30,42 @@ const HomePage = () => {
               onError={(e) => { e.target.style.display = 'none'; }}
             />
             <div>
-              <h1 style={{ margin: 0, fontSize: 20, color: 'white' }}>Unified Citizen Profile System</h1>
-              <p style={{ margin: 0, fontSize: 12, color: '#b3d4ff' }}>Government of Lesotho</p>
+              <h1 style={{ margin: 0, fontSize: 20, color: 'white' }}>
+                {t('unified_citizen')} {t('profile_system')}
+              </h1>
+              <p style={{ margin: 0, fontSize: 12, color: '#b3d4ff' }}>
+                {t('government_of_lesotho')}
+              </p>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
+            <LanguageToggleLight />
+
+            <Link to="/staff-login" style={{
+              color: 'white',
+              textDecoration: 'none',
+              fontSize: 14,
+              fontWeight: 'bold',
+              padding: '8px 16px',
+              border: '1px solid rgba(255,255,255,0.4)',
+              borderRadius: 4,
+            }}>
+              Staff Portal
+            </Link>
+
             <Link to="/login" style={{
               color: 'white', textDecoration: 'none',
               fontSize: 14, fontWeight: 'bold',
-            }}>Login</Link>
+            }}>
+              {t('login')}
+            </Link>
+
             <Link to="/register" style={{
               background: '#ffcc00', color: '#003366', padding: '8px 16px',
               borderRadius: 4, textDecoration: 'none', fontWeight: 'bold', fontSize: 14,
-            }}>Register</Link>
+            }}>
+              {t('register')}
+            </Link>
           </div>
         </div>
       </header>
@@ -63,49 +90,49 @@ const HomePage = () => {
             onError={(e) => { e.target.style.display = 'none'; }}
           />
           <h1 style={{ fontSize: 46, margin: '0 0 20px 0', color: 'white', lineHeight: 1.2 }}>
-            Submit Once. Use Everywhere.
+            {t('submit_once_use_everywhere')}
           </h1>
           <p style={{ fontSize: 18, lineHeight: 1.6, color: '#e0e8f5' }}>
-            Verify your identity once with Home Affairs, then access all government services —
-            Finance, Traffic, Police, Passport, and Pensions — without resubmitting documents.
+            {t('hero_description')}
           </p>
           <div style={{ marginTop: 40 }}>
             <Link to="/register" style={{
               background: '#ffcc00', color: '#003366', padding: '15px 40px',
               borderRadius: 6, textDecoration: 'none', fontWeight: 'bold', fontSize: 16,
               marginRight: 15, display: 'inline-block',
-            }}>Get Started</Link>
+            }}>{t('get_started')}</Link>
             <Link to="/login" style={{
               background: 'transparent', color: 'white', padding: '15px 40px',
               borderRadius: 6, textDecoration: 'none', fontWeight: 'bold', fontSize: 16,
               border: '2px solid white', display: 'inline-block',
-            }}>Already Registered</Link>
+            }}>{t('already_registered')}</Link>
           </div>
         </div>
       </section>
 
       <section style={{ padding: '60px 30px', background: 'white' }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-          <h2 style={{ textAlign: 'center', fontSize: 32, color: '#003366' }}>The Problem</h2>
+          <h2 style={{ textAlign: 'center', fontSize: 32, color: '#003366' }}>
+            {t('the_problem')}
+          </h2>
           <p style={{
             textAlign: 'center', color: '#555', fontSize: 16,
             maxWidth: 700, margin: '20px auto',
           }}>
-            Basotho citizens face repeated document submission, separate visits to multiple
-            government offices, and long queues — all because departments don't share information.
+            {t('problem_description')}
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, marginTop: 40 }}>
             <div style={{ padding: 25, background: '#f9f9f9', borderRadius: 8, borderLeft: '4px solid #cc0000' }}>
               <h3 style={{ color: '#cc0000', marginTop: 0, fontSize: 32 }}>3–5×</h3>
-              <p style={{ color: '#555', margin: 0 }}>You submit the same ID to different offices</p>
+              <p style={{ color: '#555', margin: 0 }}>{t('problem_1')}</p>
             </div>
             <div style={{ padding: 25, background: '#f9f9f9', borderRadius: 8, borderLeft: '4px solid #cc0000' }}>
               <h3 style={{ color: '#cc0000', marginTop: 0, fontSize: 32 }}>2–4 hrs</h3>
-              <p style={{ color: '#555', margin: 0 }}>Average waiting time per office visit</p>
+              <p style={{ color: '#555', margin: 0 }}>{t('problem_2')}</p>
             </div>
             <div style={{ padding: 25, background: '#f9f9f9', borderRadius: 8, borderLeft: '4px solid #cc0000' }}>
-              <h3 style={{ color: '#cc0000', marginTop: 0, fontSize: 32 }}>Months</h3>
-              <p style={{ color: '#555', margin: 0 }}>To process a PAYE tax refund</p>
+              <h3 style={{ color: '#cc0000', marginTop: 0, fontSize: 32 }}>{t('months')}</h3>
+              <p style={{ color: '#555', margin: 0 }}>{t('problem_3')}</p>
             </div>
           </div>
         </div>
@@ -113,43 +140,30 @@ const HomePage = () => {
 
       <section style={{ padding: '60px 30px', background: '#f5f5f5' }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-          <h2 style={{ textAlign: 'center', fontSize: 32, color: '#003366' }}>Our Solution</h2>
+          <h2 style={{ textAlign: 'center', fontSize: 32, color: '#003366' }}>
+            {t('our_solution')}
+          </h2>
           <p style={{
             textAlign: 'center', color: '#555', fontSize: 16,
             maxWidth: 700, margin: '20px auto',
           }}>
-            One verified citizen profile, accessible to authorized departments only.
+            {t('solution_description')}
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, marginTop: 40 }}>
             <div style={{ padding: 25, background: 'white', borderRadius: 8, textAlign: 'center' }}>
-              <img
-                src={assetPath('/assets/images/citizen-card.png')}
-                alt="Verify"
-                style={{ height: 100, marginBottom: 15 }}
-                onError={(e) => { e.target.style.display = 'none'; }}
-              />
-              <h3 style={{ color: '#003366' }}>Verify Once</h3>
-              <p style={{ color: '#555' }}>Visit Home Affairs once to verify your identity</p>
+              <div style={{ fontSize: 72, marginBottom: 15, lineHeight: 1 }}>🪪</div>
+              <h3 style={{ color: '#003366' }}>{t('verify_once')}</h3>
+              <p style={{ color: '#555' }}>{t('verify_once_desc')}</p>
             </div>
             <div style={{ padding: 25, background: 'white', borderRadius: 8, textAlign: 'center' }}>
-              <img
-                src={assetPath('/assets/icons/verified-badge.svg')}
-                alt="Control"
-                style={{ height: 100, marginBottom: 15 }}
-                onError={(e) => { e.target.style.display = 'none'; }}
-              />
-              <h3 style={{ color: '#003366' }}>Control Access</h3>
-              <p style={{ color: '#555' }}>See exactly which department accessed your data</p>
+              <div style={{ fontSize: 72, marginBottom: 15, lineHeight: 1 }}>🔒</div>
+              <h3 style={{ color: '#003366' }}>{t('control_access')}</h3>
+              <p style={{ color: '#555' }}>{t('control_access_desc')}</p>
             </div>
             <div style={{ padding: 25, background: 'white', borderRadius: 8, textAlign: 'center' }}>
-              <img
-                src={assetPath('/assets/images/flag-lesotho.png')}
-                alt="Lesotho"
-                style={{ height: 100, marginBottom: 15 }}
-                onError={(e) => { e.target.style.display = 'none'; }}
-              />
-              <h3 style={{ color: '#003366' }}>Access Instantly</h3>
-              <p style={{ color: '#555' }}>Apply online — no queues, no photocopies</p>
+              <div style={{ fontSize: 72, marginBottom: 15, lineHeight: 1 }}>🇱🇸</div>
+              <h3 style={{ color: '#003366' }}>{t('access_instantly')}</h3>
+              <p style={{ color: '#555' }}>{t('access_instantly_desc')}</p>
             </div>
           </div>
         </div>
@@ -158,16 +172,14 @@ const HomePage = () => {
       <section style={{ padding: '60px 30px', background: 'white' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <h2 style={{ textAlign: 'center', fontSize: 32, color: '#003366' }}>
-            Integrated Departments
+            {t('integrated_departments')}
           </h2>
-          <p style={{
-            textAlign: 'center', color: '#555', fontSize: 16, marginBottom: 40,
-          }}>
-            One profile works across all these ministries
+          <p style={{ textAlign: 'center', color: '#555', fontSize: 16, marginBottom: 40 }}>
+            {t('one_profile_works')}
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
             {departments.map((dept) => (
-              <div key={dept.name} style={{
+              <div key={dept.nameKey} style={{
                 padding: 25, border: '1px solid #ddd', borderRadius: 8,
                 background: '#fafafa', textAlign: 'center',
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -180,13 +192,13 @@ const HomePage = () => {
                 }}>
                   <img
                     src={dept.logo}
-                    alt={dept.name}
+                    alt={t(dept.nameKey)}
                     style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                     onError={(e) => { e.target.style.display = 'none'; e.target.parentNode.textContent = '🏛️'; }}
                   />
                 </div>
-                <h3 style={{ color: '#003366', margin: '10px 0' }}>{dept.name}</h3>
-                <p style={{ color: '#555', margin: 0, fontSize: 14 }}>{dept.desc}</p>
+                <h3 style={{ color: '#003366', margin: '10px 0' }}>{t(dept.nameKey)}</h3>
+                <p style={{ color: '#555', margin: 0, fontSize: 14 }}>{t(dept.descKey)}</p>
               </div>
             ))}
           </div>
@@ -209,52 +221,51 @@ const HomePage = () => {
           color: 'white', textAlign: 'center',
         }}>
           <h2 style={{ fontSize: 32, marginBottom: 20, color: 'white' }}>
-            Built for All Basotho
+            {t('built_for_all_basotho')}
           </h2>
           <p style={{ fontSize: 16, color: '#e0e8f5' }}>
-            From Maseru to Mafeteng, from remote villages to city centres —
-            one profile serves every citizen.
+            {t('built_for_all_basotho_desc')}
           </p>
         </div>
       </section>
 
-      <section style={{
-        padding: '60px 30px', background: '#003366',
-        color: 'white', textAlign: 'center',
-      }}>
+      <section style={{ padding: '60px 30px', background: '#003366', color: 'white', textAlign: 'center' }}>
         <h2 style={{ fontSize: 32, margin: '0 0 20px 0', color: 'white' }}>
-          Ready to Get Started?
+          {t('ready_to_get_started')}
         </h2>
         <p style={{ fontSize: 16, color: '#b3d4ff', marginBottom: 30 }}>
-          Register today and never carry photocopies again
+          {t('register_today')}
         </p>
         <Link to="/register" style={{
           background: '#ffcc00', color: '#003366', padding: '15px 40px',
           borderRadius: 6, textDecoration: 'none', fontWeight: 'bold', fontSize: 16,
           display: 'inline-block',
-        }}>Create Your Profile</Link>
+        }}>{t('create_your_profile')}</Link>
       </section>
 
       <footer style={{
         background: '#001a33', color: 'white',
         padding: 30, textAlign: 'center',
       }}>
-        <div style={{
-          display: 'flex', justifyContent: 'center',
-          gap: 20, marginBottom: 15,
-        }}>
-          <img src={assetPath('/assets/logos/lesotho-coat-of-arms.png')} alt="Coat of Arms"
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginBottom: 15 }}>
+          <img
+            src={assetPath('/assets/logos/lesotho-coat-of-arms.png')}
+            alt="Coat of Arms"
             style={{ height: 45 }}
-            onError={(e) => { e.target.style.display = 'none'; }} />
-          <img src={assetPath('/assets/images/flag-lesotho.png')} alt="Lesotho Flag"
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+          <img
+            src={assetPath('/assets/images/flag-lesotho.png')}
+            alt="Lesotho Flag"
             style={{ height: 45 }}
-            onError={(e) => { e.target.style.display = 'none'; }} />
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
         </div>
         <p style={{ margin: 0, color: '#b3d4ff', fontSize: 14 }}>
-          © 2026 Government of Lesotho — Unified Citizen Profile System
+          © 2026 {t('government_of_lesotho')} — {t('unified_citizen')} {t('profile_system')}
         </p>
         <p style={{ margin: '10px 0 0 0', color: '#8899bb', fontSize: 12 }}>
-          A prototype designed for the HCI assignment at Limkokwing University
+          {t('assignment_footer')}
         </p>
       </footer>
     </div>

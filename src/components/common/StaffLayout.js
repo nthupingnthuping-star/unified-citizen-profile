@@ -17,8 +17,9 @@ const StaffLayout = ({ children, title }) => {
       items: [
         { path: '/staff-dashboard', labelKey: 'overview' },
         { path: '/staff/home-affairs', labelKey: 'verification_queue' },
+        { path: '/staff/lookup', label: '🔍 Citizen Search' },
         { path: '/staff/appointments', labelKey: 'appointments' },
-        { path: '/staff/analytics', labelKey: 'analytics' },
+        { path: '/staff/home-affairs/analytics', labelKey: 'analytics' },
       ],
     },
     2: {
@@ -27,8 +28,9 @@ const StaffLayout = ({ children, title }) => {
       items: [
         { path: '/staff-dashboard', labelKey: 'overview' },
         { path: '/staff/traffic', labelKey: 'application_queue' },
+        { path: '/staff/lookup', label: '🔍 Citizen Search' },
         { path: '/staff/appointments', labelKey: 'appointments' },
-        { path: '/staff/analytics', labelKey: 'analytics' },
+        { path: '/staff/traffic/analytics', labelKey: 'analytics' },
       ],
     },
     3: {
@@ -37,8 +39,9 @@ const StaffLayout = ({ children, title }) => {
       items: [
         { path: '/staff-dashboard', labelKey: 'overview' },
         { path: '/staff/finance', labelKey: 'application_queue' },
+        { path: '/staff/lookup', label: '🔍 Citizen Search' },
         { path: '/staff/appointments', labelKey: 'appointments' },
-        { path: '/staff/analytics', labelKey: 'analytics' },
+        { path: '/staff/finance/analytics', labelKey: 'analytics' },
       ],
     },
     4: {
@@ -47,8 +50,9 @@ const StaffLayout = ({ children, title }) => {
       items: [
         { path: '/staff-dashboard', labelKey: 'overview' },
         { path: '/staff/pensions', labelKey: 'application_queue' },
+        { path: '/staff/lookup', label: '🔍 Citizen Search' },
         { path: '/staff/appointments', labelKey: 'appointments' },
-        { path: '/staff/analytics', labelKey: 'analytics' },
+        { path: '/staff/pensions/analytics', labelKey: 'analytics' },
       ],
     },
     5: {
@@ -57,8 +61,9 @@ const StaffLayout = ({ children, title }) => {
       items: [
         { path: '/staff-dashboard', labelKey: 'overview' },
         { path: '/staff/police', labelKey: 'application_queue' },
+        { path: '/staff/lookup', label: '🔍 Citizen Search' },
         { path: '/staff/appointments', labelKey: 'appointments' },
-        { path: '/staff/analytics', labelKey: 'analytics' },
+        { path: '/staff/police/analytics', labelKey: 'analytics' },
       ],
     },
     6: {
@@ -67,8 +72,9 @@ const StaffLayout = ({ children, title }) => {
       items: [
         { path: '/staff-dashboard', labelKey: 'overview' },
         { path: '/staff/passport', labelKey: 'application_queue' },
+        { path: '/staff/lookup', label: '🔍 Citizen Search' },
         { path: '/staff/appointments', labelKey: 'appointments' },
-        { path: '/staff/analytics', labelKey: 'analytics' },
+        { path: '/staff/passport/analytics', labelKey: 'analytics' },
       ],
     },
   };
@@ -90,7 +96,6 @@ const StaffLayout = ({ children, title }) => {
         display: 'flex', flexDirection: 'column', position: 'fixed',
         top: 0, bottom: 0, left: 0, zIndex: 10,
       }}>
-        {/* Header */}
         <div style={{ padding: '15px 20px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <img
@@ -107,7 +112,6 @@ const StaffLayout = ({ children, title }) => {
           </div>
         </div>
 
-        {/* Department */}
         <div style={{
           padding: 15, borderBottom: '1px solid rgba(255,255,255,0.1)',
           display: 'flex', alignItems: 'center', gap: 10,
@@ -125,7 +129,6 @@ const StaffLayout = ({ children, title }) => {
           </div>
         </div>
 
-        {/* Signed-in user */}
         {profile && (
           <div style={{ padding: '15px 20px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
             <div style={{ fontSize: 11, color: '#b3d4ff', fontWeight: 'bold' }}>{t('signed_in_as')}</div>
@@ -141,7 +144,6 @@ const StaffLayout = ({ children, title }) => {
           </div>
         )}
 
-        {/* Menu */}
         <nav style={{ flex: 1, padding: '15px 0', overflowY: 'auto' }}>
           {currentDept.items.map((item) => {
             const isActive = location.pathname === item.path;
@@ -156,13 +158,12 @@ const StaffLayout = ({ children, title }) => {
                 fontSize: 13,
                 fontWeight: isActive ? 'bold' : 'normal',
               }}>
-                {t(item.labelKey)}
+                {item.label || t(item.labelKey)}
               </Link>
             );
           })}
         </nav>
 
-        {/* Logout */}
         <div style={{ padding: 15, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
           <button onClick={handleLogout} style={{
             width: '100%', padding: 10, background: 'rgba(255,255,255,0.15)',

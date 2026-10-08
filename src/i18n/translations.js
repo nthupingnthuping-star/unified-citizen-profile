@@ -1,18 +1,14 @@
 /* eslint-disable no-dupe-keys */
 export const translations = {
   en: {
-    // ==========================================
     // SIDEBAR GROUPS
-    // ==========================================
     group_my_identity: 'My Identity',
     group_appointments: 'Appointments',
     group_money_taxes: 'Money & Taxes',
     group_transport: 'Transport',
     group_travel_safety: 'Travel & Safety',
 
-    // ==========================================
     // SIDEBAR ITEMS — CITIZEN
-    // ==========================================
     dashboard: 'Dashboard',
     verify_my_identity: 'Verify My Identity',
     notifications: 'Notifications',
@@ -25,18 +21,14 @@ export const translations = {
     passport_services: 'Passport Services',
     police_clearance_reports: 'Police Clearance & Reports',
 
-    // ==========================================
     // SIDEBAR ITEMS — STAFF
-    // ==========================================
     overview: 'Overview',
     application_queue: 'Application Queue',
     verification_queue: 'Verification Queue',
     appointments: 'Appointments',
     analytics: 'Analytics',
 
-    // ==========================================
     // COMMON BUTTONS
-    // ==========================================
     login: 'Login',
     register: 'Register',
     logout: 'Logout',
@@ -54,6 +46,13 @@ export const translations = {
     confirm_appointment: 'Confirm Appointment',
     cancel_appointment: 'Cancel Appointment',
     apply: 'Apply',
+    apply_learner_license: 'Apply for Learner License',
+    apply_driver_license: 'Apply for Driver License',
+    register_vehicle: 'Register Vehicle',
+    apply_passport: 'Apply for New Passport',
+    renew_passport: 'Renew Passport',
+    apply_pension: 'Apply for Old Age Pension',
+    apply_disability: 'Apply for Disability Grant',
     view_certificate: 'View Certificate',
     mark_read: 'Mark Read',
     mark_all_read: 'Mark All as Read',
@@ -61,9 +60,7 @@ export const translations = {
     previous: 'Previous',
     back: 'Back',
 
-    // ==========================================
     // AUTH PAGES
-    // ==========================================
     citizen_login: 'Citizen Login',
     staff_login: 'Staff Login',
     register_profile: 'Register Citizen Profile',
@@ -92,9 +89,7 @@ export const translations = {
     logging_in: 'Logging in...',
     registering: 'Registering...',
 
-    // ==========================================
     // DASHBOARD
-    // ==========================================
     welcome_back: 'Welcome back',
     welcome: 'Welcome',
     available_services: 'Available Services',
@@ -108,9 +103,7 @@ export const translations = {
     citizen: 'Citizen',
     unknown: 'Unknown',
 
-    // ==========================================
-    // MINISTRY NAMES (DASHBOARD)
-    // ==========================================
+    // MINISTRY NAMES
     ministry_finance: 'Finance / RSL',
     ministry_home_affairs: 'Home Affairs',
     ministry_traffic: 'Traffic',
@@ -126,9 +119,7 @@ export const translations = {
     ministry_pensions_desc: 'Pension registration',
     ministry_access_history_desc: 'Who accessed your data',
 
-    // ==========================================
     // MINISTRY HEADINGS
-    // ==========================================
     ministry_of_finance: 'Ministry of Finance / Revenue Services Lesotho (RSL)',
     traffic_department: 'Department of Traffic and Transport',
     police_service: 'Lesotho Mounted Police Service',
@@ -136,9 +127,7 @@ export const translations = {
     pensions_department: 'Pensions Department',
     home_affairs_ministry: 'Ministry of Home Affairs',
 
-    // ==========================================
     // TABS
-    // ==========================================
     my_applications_tab: 'My Applications',
     tax_clearance_tab: 'Tax Clearance (e-TCC)',
     paye_refund_tab: 'PAYE Refund',
@@ -152,9 +141,7 @@ export const translations = {
     old_age_pension_tab: 'Old Age Pension',
     disability_grant_tab: 'Disability Grant',
 
-    // ==========================================
     // FINANCE
-    // ==========================================
     business_name: 'Business Name',
     tin: 'Tax Identification Number (TIN)',
     purpose: 'Purpose',
@@ -163,9 +150,7 @@ export const translations = {
     amount_maloti: 'Amount (Maloti)',
     have_form_p9: 'I have Form P9 from my employer',
 
-    // ==========================================
     // TRAFFIC
-    // ==========================================
     vehicle_type: 'Vehicle Type',
     standard_car: 'Standard Car',
     motorcycle: 'Motorcycle',
@@ -185,9 +170,7 @@ export const translations = {
     has_customs: 'I have customs clearance (for imports)',
     has_vat: 'I have VAT clearance from RSL',
 
-    // ==========================================
     // POLICE
-    // ==========================================
     destination_country: 'Destination Country',
     has_id_copy: 'I have my original National ID',
     crime_type: 'Crime Type',
@@ -197,9 +180,7 @@ export const translations = {
     has_evidence: 'I have evidence',
     select: '-- Select --',
 
-    // ==========================================
     // PASSPORT
-    // ==========================================
     passport_type: 'Passport Type',
     ordinary: 'Ordinary',
     diplomatic: 'Diplomatic',
@@ -208,17 +189,13 @@ export const translations = {
     old_passport_number: 'Old Passport Number',
     has_old_passport: 'I have my old passport',
 
-    // ==========================================
     // PENSIONS
-    // ==========================================
     bank_account: 'Bank Account Number',
     has_bank_statement: 'I have a bank statement as proof',
     disability_type: 'Disability Type',
     has_medical_report: 'I have a medical report',
 
-    // ==========================================
     // APPOINTMENTS
-    // ==========================================
     step_department: '1. Department & Service',
     step_branch: '2. Branch & Date',
     step_time: '3. Time Slot',
@@ -239,9 +216,7 @@ export const translations = {
     slots_left: 'left',
     full: 'FULL',
 
-    // ==========================================
     // APPLICATION STATUS
-    // ==========================================
     status: 'Status',
     reference: 'Reference',
     service: 'Service',
@@ -261,9 +236,8 @@ export const translations = {
     issue_date: 'Issue Date',
     valid_until: 'Valid Until',
 
-    // ==========================================
     // NOTIFICATIONS
-    // ==========================================
+    notifications_page: 'Notifications',
     unread_notifications: 'unread notifications',
     notification_help: "You'll be notified when your applications change status or when appointments are confirmed",
     no_notifications: 'No notifications yet',
@@ -274,9 +248,7 @@ export const translations = {
     filter_unread: 'Unread',
     filter_read: 'Read',
 
-    // ==========================================
     // ACCESS HISTORY
-    // ==========================================
     access_history: 'Access History',
     who_accessed_my_data: 'Who Viewed My Data',
     access_help: "Every time a government department accesses your data, it is recorded here",
@@ -285,18 +257,15 @@ export const translations = {
     date_time: 'Date & Time',
     no_access_records: 'No one has accessed your data yet',
 
-    // ==========================================
     // STAFF PAGES
-    // ==========================================
     staff_dashboard_welcome: 'Welcome',
     role_permissions: 'Role & Permissions',
     role_help: 'You can view, approve, reject, or request more info on applications submitted to your department',
     role_restriction: 'You cannot create applications, edit citizen data, or access other ministries records',
     your_services: 'Your Services',
 
-    // ==========================================
     // ANALYTICS
-    // ==========================================
+    analytics_page: 'Analytics',
     total_applications: 'Total Applications',
     approval_rate: 'Approval Rate',
     avg_processing: 'Avg Processing Time',
@@ -306,31 +275,52 @@ export const translations = {
     top_services: 'Top Services',
     insights: 'Insights',
 
-    // ==========================================
     // CERTIFICATE
-    // ==========================================
     certificate: 'Certificate',
     government_of_lesotho_full: 'Government of Lesotho',
     this_certifies_that: 'This is to certify that',
     has_been_granted: "Has been granted this certificate in accordance with the laws of the Kingdom of Lesotho",
     scan_qr: 'Scan this QR code to verify this certificate online',
-    print_save_pdf: 'Print / Save as PDF',
+    print_save_pdf: 'Download PDF',
     invalid_certificate: 'Certificate Not Valid',
     expired_certificate: 'Certificate Expired',
     authentic_certificate: 'Certificate is Authentic',
     certificate_not_found: 'Certificate Not Found',
 
-    // ==========================================
     // VERIFY PAGE
-    // ==========================================
     certificate_verification: 'Certificate Verification',
     issued_to: 'Issued To',
     issued_by: 'Issued By',
     verifying: 'Verifying certificate...',
 
-    // ==========================================
+    // HOME PAGE
+    submit_once_use_everywhere: 'Submit Once. Use Everywhere.',
+    hero_description: 'Verify your identity once with Home Affairs, then access all government services — Finance, Traffic, Police, Passport, and Pensions — without resubmitting documents.',
+    get_started: 'Get Started',
+    the_problem: 'The Problem',
+    problem_description: "Basotho citizens face repeated document submission, separate visits to multiple government offices, and long queues — all because departments don't share information.",
+    problem_1: 'You submit the same ID to different offices',
+    problem_2: 'Average waiting time per office visit',
+    problem_3: 'To process a PAYE tax refund',
+    months: 'Months',
+    our_solution: 'Our Solution',
+    solution_description: 'One verified citizen profile, accessible to authorized departments only.',
+    verify_once: 'Verify Once',
+    verify_once_desc: 'Visit Home Affairs once to verify your identity',
+    control_access: 'Control Access',
+    control_access_desc: 'See exactly which department accessed your data',
+    access_instantly: 'Access Instantly',
+    access_instantly_desc: 'Apply online — no queues, no photocopies',
+    integrated_departments: 'Integrated Departments',
+    one_profile_works: 'One profile works across all these ministries',
+    built_for_all_basotho: 'Built for All Basotho',
+    built_for_all_desc: 'From Maseru to Mafeteng, from remote villages to city centres — one profile serves every citizen.',
+    ready_to_get_started: 'Ready to Get Started?',
+    register_today: 'Register today and never carry photocopies again',
+    create_your_profile: 'Create Your Profile',
+    assignment_footer: 'A prototype designed for the HCI assignment at Limkokwing University',
+
     // LANGUAGE
-    // ==========================================
     language: 'Language',
     english: 'English',
     sesotho: 'Sesotho',
@@ -339,18 +329,14 @@ export const translations = {
   },
 
   st: {
-    // ==========================================
     // SIDEBAR GROUPS
-    // ==========================================
     group_my_identity: 'Boitsebiso ba Ka',
     group_appointments: 'Likopano',
     group_money_taxes: 'Chelete le Lekhetho',
     group_transport: 'Lipalangwang',
     group_travel_safety: 'Maeto le Polokeho',
 
-    // ==========================================
     // SIDEBAR ITEMS — CITIZEN
-    // ==========================================
     dashboard: 'Leqephe la Ka',
     verify_my_identity: 'Netefatsa Boitsebiso ba Ka',
     notifications: 'Litsebiso',
@@ -363,18 +349,14 @@ export const translations = {
     passport_services: 'Litšebeletso tsa Phasepoto',
     police_clearance_reports: 'Tlhatlhobo ea Sepolesa',
 
-    // ==========================================
     // SIDEBAR ITEMS — STAFF
-    // ==========================================
     overview: 'Kakaretso',
     application_queue: 'Lenane la Likopo',
     verification_queue: 'Lenane la Netefatso',
     appointments: 'Likopano',
     analytics: 'Tlhahlobo',
 
-    // ==========================================
     // COMMON BUTTONS
-    // ==========================================
     login: 'Kena',
     register: 'Ngolisa',
     logout: 'Tsoa',
@@ -392,6 +374,13 @@ export const translations = {
     confirm_appointment: 'Netefatsa Kopano',
     cancel_appointment: 'Hlakola Kopano',
     apply: 'Etsa Kopo',
+    apply_learner_license: 'Etsa Kopo ea Laesense ea Ho Ithuta',
+    apply_driver_license: 'Etsa Kopo ea Laesense ea Ho Khanna',
+    register_vehicle: 'Ngolisa Koloi',
+    apply_passport: 'Etsa Kopo ea Phasepoto e Ncha',
+    renew_passport: 'Nchafatsa Phasepoto',
+    apply_pension: 'Etsa Kopo ea Penshene ea Botsofali',
+    apply_disability: 'Etsa Kopo ea Thuso ea Bokooa',
     view_certificate: 'Sheba Setifikeiti',
     mark_read: 'Tšoaea e Baliloe',
     mark_all_read: 'Tšoaea kaofela e le ho baloa',
@@ -399,9 +388,7 @@ export const translations = {
     previous: 'Fetileng',
     back: 'Khutla',
 
-    // ==========================================
     // AUTH PAGES
-    // ==========================================
     citizen_login: 'Ho Kena ha Moahi',
     staff_login: 'Ho Kena ha Basebetsi',
     register_profile: 'Ngolisa Moahi',
@@ -430,9 +417,7 @@ export const translations = {
     logging_in: 'Ho kena...',
     registering: 'Ho ngolisa...',
 
-    // ==========================================
     // DASHBOARD
-    // ==========================================
     welcome_back: 'Rea u amohela',
     welcome: 'Rea u amohela',
     available_services: 'Litšebeletso tse Fumanehang',
@@ -446,9 +431,7 @@ export const translations = {
     citizen: 'Moahi',
     unknown: 'Ha e Tsejoe',
 
-    // ==========================================
-    // MINISTRY NAMES (DASHBOARD)
-    // ==========================================
+    // MINISTRY NAMES
     ministry_finance: 'Lichelete / RSL',
     ministry_home_affairs: 'Litaba tsa Lehae',
     ministry_traffic: 'Sephethephethe',
@@ -464,9 +447,7 @@ export const translations = {
     ministry_pensions_desc: 'Ho Ngolisa Penshene',
     ministry_access_history_desc: 'Ke Mang ea Shebileng Boitsebiso ba Hau',
 
-    // ==========================================
     // MINISTRY HEADINGS
-    // ==========================================
     ministry_of_finance: 'Lefapha la Lichelete / Litšebeletso tsa Lekhetho Lesotho',
     traffic_department: 'Lefapha la Sephethephethe le Lipalangwang',
     police_service: 'Sepolesa sa Lesotho',
@@ -474,9 +455,7 @@ export const translations = {
     pensions_department: 'Lefapha la Penshene',
     home_affairs_ministry: 'Lefapha la Litaba tsa Lehae',
 
-    // ==========================================
     // TABS
-    // ==========================================
     my_applications_tab: 'Likopo tsa Ka',
     tax_clearance_tab: 'Tlhahlobo ea Lekhetho (e-TCC)',
     paye_refund_tab: 'Pusetso ea PAYE',
@@ -490,9 +469,7 @@ export const translations = {
     old_age_pension_tab: 'Penshene ea Botsofali',
     disability_grant_tab: 'Thuso ea Bokooa',
 
-    // ==========================================
     // FINANCE
-    // ==========================================
     business_name: 'Lebitso la Khoebo',
     tin: 'Nomoro ea Boitsebiso ba Lekhetho (TIN)',
     purpose: 'Sepheo',
@@ -501,9 +478,7 @@ export const translations = {
     amount_maloti: 'Chelete (Maloti)',
     have_form_p9: 'Ke na le Foromo P9 ho tsoa ho mohiri oa ka',
 
-    // ==========================================
     // TRAFFIC
-    // ==========================================
     vehicle_type: 'Mofuta oa Koloi',
     standard_car: 'Koloi e Tloaelehileng',
     motorcycle: 'Sethuthuthu',
@@ -523,9 +498,7 @@ export const translations = {
     has_customs: 'Ke na le tumello ea lekhetho la thepa',
     has_vat: 'Ke na le tumello ea VAT ho tsoa ho RSL',
 
-    // ==========================================
     // POLICE
-    // ==========================================
     destination_country: 'Naha eo U Eang Ho Eona',
     has_id_copy: "Ke na le Nomoro ea Ka ea Boitsebiso ea 'nete",
     crime_type: 'Mofuta oa Tlolo ea Molao',
@@ -535,9 +508,7 @@ export const translations = {
     has_evidence: 'Ke na le bopaki',
     select: '-- Khetha --',
 
-    // ==========================================
     // PASSPORT
-    // ==========================================
     passport_type: 'Mofuta oa Phasepoto',
     ordinary: 'E Tloaelehileng',
     diplomatic: 'Ea Bodiplomate',
@@ -546,17 +517,13 @@ export const translations = {
     old_passport_number: 'Nomoro ea Phasepoto ea Khale',
     has_old_passport: 'Ke na le phasepoto ea ka ea khale',
 
-    // ==========================================
     // PENSIONS
-    // ==========================================
     bank_account: 'Nomoro ea Akhaonto ea Banka',
     has_bank_statement: 'Ke na le setatemente sa banka',
     disability_type: 'Mofuta oa Bokooa',
     has_medical_report: 'Ke na le tlaleho ea bongaka',
 
-    // ==========================================
     // APPOINTMENTS
-    // ==========================================
     step_department: '1. Lefapha le Tšebeletso',
     step_branch: '2. Lekala le Letsatsi',
     step_time: '3. Nako',
@@ -577,9 +544,7 @@ export const translations = {
     slots_left: 'li setseng',
     full: 'E TLETSE',
 
-    // ==========================================
     // APPLICATION STATUS
-    // ==========================================
     status: 'Boemo',
     reference: 'Referense',
     service: 'Tšebeletso',
@@ -599,9 +564,8 @@ export const translations = {
     issue_date: 'Letsatsi la ho Fana',
     valid_until: 'E Sebetsa ho fihlela',
 
-    // ==========================================
     // NOTIFICATIONS
-    // ==========================================
+    notifications_page: 'Litsebiso',
     unread_notifications: 'litsebiso tse sa baloang',
     notification_help: 'U tla tsebisoa ha likopo tsa hau li fetoha',
     no_notifications: 'Ha ho litsebiso hajoale',
@@ -612,9 +576,7 @@ export const translations = {
     filter_unread: 'Tse sa Baloang',
     filter_read: 'Tse Baliloeng',
 
-    // ==========================================
     // ACCESS HISTORY
-    // ==========================================
     access_history: 'Nalane ea Phihlello',
     who_accessed_my_data: 'Ke Mang ea Shebileng Boitsebiso ba Ka',
     access_help: "Nako e 'ngoe le e 'ngoe ha lefapha la mmuso le fumana boitsebiso ba hau, e ngolisoa mona",
@@ -623,18 +585,15 @@ export const translations = {
     date_time: 'Letsatsi le Nako',
     no_access_records: 'Ha ho motho ea fumaneng boitsebiso ba hau',
 
-    // ==========================================
     // STAFF PAGES
-    // ==========================================
     staff_dashboard_welcome: 'Rea u amohela',
     role_permissions: 'Karolo le Litokelo',
     role_help: 'U ka sheba, amohela, hana, kapa u kopa tlhaloso e eketsehileng',
     role_restriction: 'U ke ke ua etsa likopo kapa ua fumana litlaleho tsa mafapha a mang',
     your_services: 'Litšebeletso tsa Hau',
 
-    // ==========================================
     // ANALYTICS
-    // ==========================================
+    analytics_page: 'Tlhahlobo',
     total_applications: 'Kakaretso ea Likopo',
     approval_rate: 'Sekhahla sa ho Amohela',
     avg_processing: 'Nako e Tloaelehileng',
@@ -644,31 +603,52 @@ export const translations = {
     top_services: 'Litšebeletso tse Holimo',
     insights: 'Tlhahlobo',
 
-    // ==========================================
     // CERTIFICATE
-    // ==========================================
     certificate: 'Setifikeiti',
     government_of_lesotho_full: 'Mmuso oa Lesotho',
     this_certifies_that: 'Sena se netefatsa hore',
     has_been_granted: "O filoe setifikeiti sena ho latela melao ea 'Muso oa Lesotho",
     scan_qr: 'Skena khoutu ena ea QR ho netefatsa setifikeiti sena',
-    print_save_pdf: 'Hatisa / Boloka e le PDF',
+    print_save_pdf: 'Khoasolla PDF',
     invalid_certificate: 'Setifikeiti ha se Sebetsa',
     expired_certificate: 'Setifikeiti se Felile',
     authentic_certificate: 'Setifikeiti se Netefetsehile',
     certificate_not_found: 'Setifikeiti ha se Fumanehe',
 
-    // ==========================================
     // VERIFY PAGE
-    // ==========================================
     certificate_verification: 'Netefatso ea Setifikeiti',
     issued_to: 'E Filoe',
     issued_by: 'E Filoe ke',
     verifying: 'Ho netefatsa setifikeiti...',
 
-    // ==========================================
+    // HOME PAGE
+    submit_once_use_everywhere: 'Romela Hang, Sebelisa Hohle.',
+    hero_description: 'Netefatsa boitsebiso ba hau hang le Litaba tsa Lehae, ebe u fumana litšebeletso tsohle tsa mmuso — Lichelete, Sephethephethe, Sepolesa, Phasepoto, le Penshene — ntle le ho romela litokomane hape.',
+    get_started: 'Qala Hona Joale',
+    the_problem: 'Bothata',
+    problem_description: 'Baahi ba Lesotho ba tobana le ho romela litokomane khafetsa, maeto a mangata liofising tsa mmuso, le mela e telele — hobane mafapha ha a arolelane boitsebiso.',
+    problem_1: 'U romela ID e tšoanang liofising tse fapaneng',
+    problem_2: 'Nako e tloaelehileng ea ho leta ofising',
+    problem_3: 'Ho sebetsa pusetso ea lekhetho la PAYE',
+    months: 'Likhoeli',
+    our_solution: 'Tharollo ea Rona',
+    solution_description: 'Boitsebiso bo le bong bo netefalitsoeng ba moahi, bo fumanehang feela ho mafapha a lumelletsoeng.',
+    verify_once: 'Netefatsa Hang',
+    verify_once_desc: 'Etela Litaba tsa Lehae hang ho netefatsa boitsebiso ba hau',
+    control_access: 'Laola Phihlello',
+    control_access_desc: 'Bona hantle hore na ke lefapha lefe le fumaneng boitsebiso ba hau',
+    access_instantly: 'Fumana Hang-hang',
+    access_instantly_desc: 'Etsa kopo inthaneteng — ha ho mela, ha ho likopi',
+    integrated_departments: 'Mafapha a Kopanetsoeng',
+    one_profile_works: 'Boitsebiso bo le bong bo sebetsa mafapheng ana kaofela',
+    built_for_all_basotho: 'E Etselitsoe Basotho Bohle',
+    built_for_all_desc: 'Ho tloha Maseru ho ea Mafeteng, ho tloha metseng e hole ho ea litoropong — boitsebiso bo le bong bo sebeletsa moahi e mong le e mong.',
+    ready_to_get_started: 'U Itokiselitse ho Qala?',
+    register_today: "Ngolisa kajeno 'me u se ke ua hlola u nka likopi",
+    create_your_profile: 'Theha Boitsebiso ba Hau',
+    assignment_footer: 'Mohlala o etselitsoeng mosebetsi oa HCI Univesithing ea Limkokwing',
+
     // LANGUAGE
-    // ==========================================
     language: 'Puo',
     english: 'Senyesemane',
     sesotho: 'Sesotho',

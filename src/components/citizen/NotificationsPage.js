@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../i18n/LanguageContext';
 import {
   getMyNotifications,
   markNotificationRead,
@@ -12,6 +13,7 @@ import Alert from '../common/Alert';
 
 const NotificationsPage = () => {
   const { profile } = useAuth();
+  const { t } = useLanguage();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
@@ -29,9 +31,9 @@ const NotificationsPage = () => {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     loadNotifications();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
 
   const handleMarkRead = async (id) => {
@@ -41,7 +43,7 @@ const NotificationsPage = () => {
 
   const handleMarkAllRead = async () => {
     await markAllNotificationsRead(profile.uid);
-    setMessage('All notifications marked as read');
+    setMessage('✓ Done');
     loadNotifications();
   };
 
@@ -62,10 +64,9 @@ const NotificationsPage = () => {
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   return (
-    <Layout title="Notifications">
+    <Layout title={t('notifications_page')}>
       <Alert type="info">
-        You have <strong>{unreadCount}</strong> unread notification{unreadCount !== 1 ? 's' : ''}.
-        You'll be notified when your applications change status or when appointments are confirmed.
+        {unreadCount} {t('unread_notifications')}. {t('notification_help')}.
       </Alert>
 
       {message && (
@@ -80,21 +81,21 @@ const NotificationsPage = () => {
           onClick={() => setFilter('all')}
           size="small"
         >
-          All ({notifications.length})
+          {t('filter_all')} ({notifications.length})
         </Button>
         <Button
           variant={filter === 'unread' ? 'primary' : 'secondary'}
           onClick={() => setFilter('unread')}
           size="small"
         >
-          Unread ({unreadCount})
+          {t('filter_unread')} ({unreadCount})
         </Button>
         <Button
           variant={filter === 'read' ? 'primary' : 'secondary'}
           onClick={() => setFilter('read')}
           size="small"
         >
-          Read ({notifications.length - unreadCount})
+          {t('filter_read')} ({notifications.length - unreadCount})
         </Button>
         {unreadCount > 0 && (
           <Button
@@ -103,23 +104,23 @@ const NotificationsPage = () => {
             size="small"
             style={{ marginLeft: 'auto' }}
           >
-            Mark all as read
+            {t('mark_all_read')}
           </Button>
         )}
       </div>
 
       {loading ? (
         <Card>
-          <p>Loading notifications...</p>
+          <p>{t('loading')}</p>
         </Card>
       ) : filtered.length === 0 ? (
         <Card>
           <p style={{ color: '#666', textAlign: 'center', padding: 30 }}>
             {filter === 'unread'
-              ? 'No unread notifications.'
+              ? t('no_unread')
               : filter === 'read'
-              ? 'No read notifications yet.'
-              : 'You have no notifications.'}
+              ? t('no_read')
+              : t('no_notifications')}
           </p>
         </Card>
       ) : (
@@ -164,7 +165,7 @@ const NotificationsPage = () => {
                     variant="outline"
                     onClick={() => handleMarkRead(notif.id)}
                   >
-                    Mark read
+                    {t('mark_read')}
                   </Button>
                 )}
               </div>

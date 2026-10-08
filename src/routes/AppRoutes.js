@@ -4,6 +4,7 @@ import ProtectedRoute from '../components/auth/ProtectedRoute';
 import HomePage from '../pages/HomePage';
 import SeedPage from '../pages/SeedPage';
 import VerifyPage from '../pages/VerifyPage';
+import UploadTest from '../pages/UploadTest';
 
 import CitizenLogin from '../components/auth/CitizenLogin';
 import StaffLogin from '../components/auth/StaffLogin';
@@ -24,6 +25,15 @@ import PoliceModule from '../components/police/PoliceModule';
 import PassportModule from '../components/passport/PassportModule';
 import PensionsModule from '../components/pensions/PensionsModule';
 
+import PensionStatement from '../pages/pension/PensionStatement';
+import PensionProjection from '../pages/pension/PensionProjection';
+import PensionClaim from '../pages/pension/PensionClaim';
+import PensionBeneficiaries from '../pages/pension/PensionBeneficiaries';
+import PensionStatus from '../pages/pension/PensionStatus';
+import PensionFundProfile from '../pages/pension/PensionFundProfile';
+
+import PoliceCaseTracker from '../pages/police/PoliceCaseTracker';
+
 import StaffDashboard from '../components/staff/StaffDashboard';
 import StaffHomeAffairs from '../components/staff/StaffHomeAffairs';
 import StaffFinance from '../components/staff/StaffFinance';
@@ -32,7 +42,15 @@ import StaffPolice from '../components/staff/StaffPolice';
 import StaffPassport from '../components/staff/StaffPassport';
 import StaffPensions from '../components/staff/StaffPensions';
 import StaffAppointments from '../components/staff/StaffAppointments';
-import StaffAnalytics from '../components/staff/StaffAnalytics';
+
+import StaffHomeAffairsAnalytics from '../components/staff/StaffHomeAffairsAnalytics';
+import StaffTrafficAnalytics from '../components/staff/StaffTrafficAnalytics';
+import StaffFinanceAnalytics from '../components/staff/StaffFinanceAnalytics';
+import StaffPensionAnalytics from '../components/staff/StaffPensionAnalytics';
+import StaffPoliceAnalytics from '../components/staff/StaffPoliceAnalytics';
+import StaffPassportAnalytics from '../components/staff/StaffPassportAnalytics';
+
+import StaffLookup from '../pages/staff/StaffLookup';
 
 const AppRoutes = () => {
   return (
@@ -45,6 +63,9 @@ const AppRoutes = () => {
       <Route path="/logout" element={<Logout />} />
       <Route path="/seed" element={<SeedPage />} />
       <Route path="/verify/:reference" element={<VerifyPage />} />
+
+      {/* Temporary test route for Cloudinary uploads */}
+      <Route path="/upload-test" element={<UploadTest />} />
 
       {/* Protected routes */}
       <Route element={<ProtectedRoute />}>
@@ -59,8 +80,16 @@ const AppRoutes = () => {
         <Route path="/finance" element={<FinanceModule />} />
         <Route path="/traffic" element={<TrafficModule />} />
         <Route path="/police" element={<PoliceModule />} />
+        <Route path="/police/case/:reference" element={<PoliceCaseTracker />} />
         <Route path="/passport" element={<PassportModule />} />
         <Route path="/pensions" element={<PensionsModule />} />
+
+        <Route path="/pension/fund" element={<PensionFundProfile />} />
+        <Route path="/pension/statement" element={<PensionStatement />} />
+        <Route path="/pension/projection" element={<PensionProjection />} />
+        <Route path="/pension/claims" element={<PensionClaim />} />
+        <Route path="/pension/beneficiaries" element={<PensionBeneficiaries />} />
+        <Route path="/pension/status" element={<PensionStatus />} />
 
         <Route path="/staff-dashboard" element={<StaffDashboard />} />
         <Route path="/staff/home-affairs" element={<StaffHomeAffairs />} />
@@ -70,7 +99,15 @@ const AppRoutes = () => {
         <Route path="/staff/passport" element={<StaffPassport />} />
         <Route path="/staff/pensions" element={<StaffPensions />} />
         <Route path="/staff/appointments" element={<StaffAppointments />} />
-        <Route path="/staff/analytics" element={<StaffAnalytics />} />
+
+        <Route path="/staff/home-affairs/analytics" element={<StaffHomeAffairsAnalytics />} />
+        <Route path="/staff/traffic/analytics" element={<StaffTrafficAnalytics />} />
+        <Route path="/staff/finance/analytics" element={<StaffFinanceAnalytics />} />
+        <Route path="/staff/pensions/analytics" element={<StaffPensionAnalytics />} />
+        <Route path="/staff/police/analytics" element={<StaffPoliceAnalytics />} />
+        <Route path="/staff/passport/analytics" element={<StaffPassportAnalytics />} />
+
+        <Route path="/staff/lookup" element={<StaffLookup />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

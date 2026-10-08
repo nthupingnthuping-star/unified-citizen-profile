@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { loginStaff } from '../../firebase/auth';
+import { useLanguage } from '../../i18n/LanguageContext';
+import { assetPath } from '../../utils/assetPath';
+import LanguageToggleLight from '../common/LanguageToggleLight';
 import Alert from '../common/Alert';
 import Button from '../common/Button';
 
 const StaffLogin = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -20,12 +24,9 @@ const StaffLogin = () => {
 
     try {
       await loginStaff(formData.email, formData.password);
-      console.log('✅ Staff logged in, navigating to /staff-dashboard');
       navigate('/staff-dashboard');
     } catch (err) {
-      console.error('Staff login error:', err);
-      const msg = err.message || 'Login failed';
-      setError(msg);
+      setError(err.message || 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -34,7 +35,7 @@ const StaffLogin = () => {
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundImage: 'url(assets/images/government-building.jpg)',
+      backgroundImage: `url(${assetPath('/assets/images/government-building.jpg')})`,
       backgroundSize: 'cover', backgroundPosition: 'center',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: 20, position: 'relative',
@@ -44,18 +45,26 @@ const StaffLogin = () => {
         background: 'rgba(0,26,51,0.9)',
       }} />
 
+      {/* Language toggle top-right */}
+      <div style={{ position: 'absolute', top: 20, right: 20, zIndex: 20 }}>
+        <LanguageToggleLight />
+      </div>
+
       <div style={{
         position: 'relative', maxWidth: 420, width: '100%',
         background: 'white', borderRadius: 12, padding: 35,
         boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
       }}>
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <img src={`${process.env.PUBLIC_URL}/assets/logos/lesotho-coat-of-arms.png`} alt="Lesotho"
+          <img
+            src={assetPath('/assets/logos/lesotho-coat-of-arms.png')}
+            alt="Lesotho"
             style={{ height: 80, marginBottom: 10 }}
-            onError={(e) => { e.target.style.display = 'none'; }} />
-          <h1 style={{ color: '#003366', margin: 0, fontSize: 22 }}>Staff Login</h1>
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+          <h1 style={{ color: '#003366', margin: 0, fontSize: 22 }}>{t('staff_login')}</h1>
           <p style={{ color: '#666', fontSize: 13, margin: '5px 0 0 0' }}>
-            Government Employee Portal
+            {t('staff_portal')}
           </p>
         </div>
 
@@ -63,7 +72,7 @@ const StaffLogin = () => {
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 15 }}>
-            <label style={{ fontSize: 13, color: '#333' }}>Email</label>
+            <label style={{ fontSize: 13, color: '#333' }}>{t('email')}</label>
             <input
               type="email"
               name="email"
@@ -76,38 +85,26 @@ const StaffLogin = () => {
           </div>
 
           <div style={{ marginBottom: 20 }}>
-            <label style={{ fontSize: 13, color: '#333' }}>Password</label>
+            <label style={{ fontSize: 13, color: '#333' }}>{t('password')}</label>
             <input
               type="password"
               name="password"
               value={formData.password}
               onChange={handleChange}
               required
-              placeholder="Enter your password"
               style={inputStyle}
             />
           </div>
 
           <Button type="submit" disabled={loading} fullWidth size="large">
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? t('logging_in') : t('login')}
           </Button>
         </form>
 
-        <div style={{
-          marginTop: 20, padding: 12,
-          background: '#f0f8ff', borderRadius: 4, fontSize: 12,
-          color: '#333',
-        }}>
-          <strong>Test staff accounts:</strong><br />
-          <code>finance_officer@ucps.gov.ls</code> / <code>password123</code><br />
-          <code>police_officer@ucps.gov.ls</code> / <code>password123</code><br />
-          <code>home_affairs_officer@ucps.gov.ls</code> / <code>password123</code>
-        </div>
-
         <p style={{ marginTop: 20, textAlign: 'center', fontSize: 13 }}>
-          <Link to="/login" style={{ color: '#003366' }}>Citizen Login</Link>
+          <Link to="/login" style={{ color: '#003366' }}>{t('citizen_login')}</Link>
           {' | '}
-          <Link to="/" style={{ color: '#003366' }}>Home</Link>
+          <Link to="/" style={{ color: '#003366' }}>{t('back_to_home')}</Link>
         </p>
       </div>
     </div>

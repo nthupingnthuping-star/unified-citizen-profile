@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { getMyAccessLogs, DEPARTMENT_NAMES } from '../../firebase/db';
 import Layout from '../common/Layout';
 import Card from '../common/Card';
@@ -8,6 +9,7 @@ import Table from '../common/Table';
 
 const AccessHistory = () => {
   const { profile } = useAuth();
+  const { t } = useLanguage();
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -27,25 +29,24 @@ const AccessHistory = () => {
   }, [profile]);
 
   return (
-    <Layout title="🔒 Who Viewed My Data">
+    <Layout title={t('who_accessed_my_data')}>
       <Alert type="info">
-        Every time a government department accesses your data, it is recorded here.
-        This ensures transparency and accountability.
+        {t('access_help')}
       </Alert>
 
-      <Card title="Access Log" style={{ marginTop: 20 }}>
+      <Card title={t('access_history')} style={{ marginTop: 20 }}>
         {loading ? (
-          <p style={{ color: '#666' }}>Loading access history...</p>
+          <p style={{ color: '#666' }}>{t('loading')}</p>
         ) : (
           <Table
-            headers={['Department', 'Action', 'Purpose', 'Date & Time']}
+            headers={[t('department'), t('action'), t('purpose'), t('date_time')]}
             rows={logs.map((log) => [
               DEPARTMENT_NAMES[log.department_id] || `Department ${log.department_id}`,
               <span style={{ textTransform: 'capitalize' }}>{log.action_type}</span>,
               log.purpose || '—',
               log.accessed_at?.toDate?.().toLocaleString() || '—',
             ])}
-            emptyMessage="No one has accessed your data yet."
+            emptyMessage={t('no_access_records')}
           />
         )}
       </Card>
@@ -54,10 +55,9 @@ const AccessHistory = () => {
         background: '#e6f0fa', padding: 20, borderRadius: 8,
         marginTop: 25, border: '1px solid #b3d4f0',
       }}>
-        <strong style={{ color: '#003366' }}>ℹ️ How This Works</strong>
+        <strong style={{ color: '#003366' }}>ℹ️ {t('role_permissions')}</strong>
         <p style={{ margin: '8px 0 0 0', color: '#333', fontSize: 14, lineHeight: 1.6 }}>
-          Each department can only access the specific fields they need to perform their service.
-          No department can see your full profile, and no one can access your data without a valid reason.
+          {t('role_help')}
         </p>
       </div>
     </Layout>
