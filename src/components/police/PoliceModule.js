@@ -7,6 +7,7 @@ import {
   getMyApplications,
   DEPARTMENTS,
   DISTRICTS,
+  isReportService,
 } from '../../firebase/db';
 import Layout from '../common/Layout';
 import Alert from '../common/Alert';
@@ -19,74 +20,58 @@ import VerifiedGuard from '../citizen/VerifiedGuard';
 import '../../styles/module.css';
 
 // ============================================================
-// FEE TABLES & OPTIONS
+// CONSTANTS
 // ============================================================
-const PASSPORT_TYPES = [
-  { value: 'Ordinary', label: 'Ordinary passport (green cover)' },
-  { value: 'Service', label: 'Service passport (blue cover)' },
-  { value: 'Diplomatic', label: 'Diplomatic passport (red cover)' },
-  { value: 'Official', label: 'Official passport' },
-];
-
-const BOOK_FORMATS = [
-  { value: '32-page', label: '32 pages (standard)', baseSurcharge: 0 },
-  { value: '48-page', label: '48 pages (frequent traveller)', baseSurcharge: 200 },
-];
-
-const PROCESSING_SPEEDS = [
-  { value: 'Standard', label: 'Standard — 10 working days', days: 10, surcharge: 0 },
-  { value: 'Express', label: 'Express — 3 working days', days: 3, surcharge: 300 },
-  { value: 'Urgent', label: 'Urgent — 24 hours', days: 1, surcharge: 600 },
-];
-
-const TRAVEL_PURPOSES = [
+const CLEARANCE_PURPOSES = [
   { value: '', label: '— Select purpose —' },
-  { value: 'Tourism', label: 'Tourism / holiday' },
-  { value: 'Business', label: 'Business' },
-  { value: 'Study', label: 'Study abroad' },
-  { value: 'Medical', label: 'Medical treatment' },
-  { value: 'Work', label: 'Employment abroad' },
-  { value: 'Family', label: 'Family visit' },
+  { value: 'Employment', label: 'Employment (local)' },
+  { value: 'Employment Abroad', label: 'Employment abroad / work permit' },
+  { value: 'Study Abroad', label: 'Study abroad' },
+  { value: 'Immigration', label: 'Immigration / residence permit' },
+  { value: 'Visa Application', label: 'Visa application' },
+  { value: 'Adoption', label: 'Adoption' },
   { value: 'Other', label: 'Other' },
 ];
 
-const BASE_FEES = {
-  Ordinary: { '32-page': 600, '48-page': 800 },
-  Service: { '32-page': 400, '48-page': 500 },
-  Diplomatic: { '32-page': 0, '48-page': 0 },
-  Official: { '32-page': 0, '48-page': 0 },
-};
+const CRIME_TYPES = [
+  { value: '', label: '— Select crime type —' },
+  { value: 'Theft', label: 'Theft / burglary' },
+  { value: 'Robbery', label: 'Robbery' },
+  { value: 'Assault', label: 'Assault' },
+  { value: 'Domestic Violence', label: 'Domestic violence' },
+  { value: 'Gender-Based Violence', label: 'Gender-based violence' },
+  { value: 'Fraud', label: 'Fraud / scam' },
+  { value: 'Cybercrime', label: 'Cybercrime (online fraud, harassment)' },
+  { value: 'Stock Theft', label: 'Stock theft' },
+  { value: 'Traffic Accident', label: 'Traffic accident' },
+  { value: 'Corruption', label: 'Corruption (bribery by an official)' },
+  { value: 'Missing Person', label: 'Missing person' },
+  { value: 'Other', label: 'Other' },
+];
 
-// ============================================================
-// HELPERS
-// ============================================================
+const CYBERCRIME_TYPES = [
+  { value: '', label: '— Select type —' },
+  { value: 'Online Fraud', label: 'Online fraud / scam' },
+  { value: 'Identity Theft', label: 'Identity theft' },
+  { value: 'Harassment', label: 'Online harassment / bullying' },
+  { value: 'Hacking', label: 'Account hacking' },
+  { value: 'Fake Profile', label: 'Fake profile / impersonation' },
+  { value: 'Financial Scam', label: 'Mobile money / banking scam' },
+  { value: 'Other', label: 'Other' },
+];
+
+const CLEARANCE_FEE = 250;
+
 const generatePaymentReference = () => {
   const year = new Date().getFullYear();
   const random = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
-  return `PAY-PAS-${year}-${random}`;
-};
-
-const computeFees = (passportType, bookFormat, speed) => {
-  const base = BASE_FEES[passportType]?.[bookFormat] ?? 0;
-  const formatSurcharge =
-    BOOK_FORMATS.find((f) => f.value === bookFormat)?.baseSurcharge ?? 0;
-  const speedSurcharge =
-    PROCESSING_SPEEDS.find((s) => s.value === speed)?.surcharge ?? 0;
-  const total = base + formatSurcharge + speedSurcharge;
-  return { base, formatSurcharge, speedSurcharge, total };
-};
-
-const computeReadyDate = (speed) => {
-  const days = PROCESSING_SPEEDS.find((s) => s.value === speed)?.days ?? 10;
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d;
+  return `PAY-POL-${year}-${random}`;
 };
 
 // ============================================================
-// MAIN COMPONENT
+// MAIN
 // ============================================================
-const PassportModule = () => {
+const PoliceModule = () => {
   const { profile } = useAuth();
   const { t } = useLanguage();
 
@@ -100,7 +85,7 @@ const PassportModule = () => {
     if (!profile) return;
     try {
       const apps = await getMyApplications(profile.uid);
-      setApplications(apps.filter((a) => a.department_id === DEPARTMENTS.PASSPORT));
+      setApplications(apps.filter((a) => a.department_id === DEPARTMENTS.POLICE));
     } catch (err) {
       console.error(err);
     }
@@ -109,7 +94,7 @@ const PassportModule = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchApplications(); }, [profile]);
 
-  const submit = async (serviceType, data) => {
+  const submit = async (serviceType, data, onSuccess) => {
     setLoading(true);
     setMessage('');
     setLastSubmission(null);
@@ -118,20 +103,21 @@ const PassportModule = () => {
         citizen_id: profile.uid,
         citizen_name: profile.full_name,
         citizen_national_id: profile.national_id,
-        department_id: DEPARTMENTS.PASSPORT,
+        department_id: DEPARTMENTS.POLICE,
         service_type: serviceType,
         application_data: data,
       });
-      setMessage(`✓ Application submitted: ${r.reference}`);
+      setMessage(`✓ Submitted: ${r.reference}`);
       setLastSubmission({
         reference: r.reference,
         serviceType,
-        paymentReference: data.payment.reference,
-        amount: data.fees.total,
-        readyDate: new Date(data.estimated_ready_date),
-        collectionBranch: data.collection_branch,
+        paymentReference: data.payment?.reference,
+        amount: data.fees?.total || 0,
+        priority: r.priority || 'normal',
+        caseNumber: r.case_number || r.reference,
       });
       fetchApplications();
+      if (onSuccess) onSuccess();
     } catch (err) {
       setMessage(`✗ ${err.message}`);
     } finally {
@@ -142,23 +128,26 @@ const PassportModule = () => {
   const statusColor = (s) => {
     if (s === 'approved' || s === 'completed') return 'green';
     if (s === 'rejected' || s === 'cancelled') return 'red';
-    if (s === 'processing') return 'yellow';
+    if (s === 'processing' || s === 'on-scene') return 'yellow';
+    if (s === 'dispatched') return 'red';
     return 'gray';
   };
 
   const TABS = [
     { key: 'dashboard', label: 'My Applications' },
-    { key: 'new', label: 'New Passport' },
-    { key: 'renewal', label: 'Renewal' },
+    { key: 'clearance', label: 'Police Clearance' },
+    { key: 'crime', label: 'Report a Crime' },
+    { key: 'accident', label: 'Traffic Accident' },
+    { key: 'cyber', label: 'Cybercrime' },
   ];
 
   return (
-    <VerifiedGuard serviceName="Passport and Citizenship Office">
-      <Layout title="Passport and Citizenship Office">
+    <VerifiedGuard serviceName="Lesotho Mounted Police Service">
+      <Layout title="Lesotho Mounted Police Service">
         <div className="module-root">
           <div className="module-header">
-            <h1>Passport and Citizenship Office</h1>
-            <p>New passports, renewals, and citizenship documents</p>
+            <h1>Lesotho Mounted Police Service</h1>
+            <p>Clearances, crime reports, accidents, and cybercrime</p>
           </div>
 
           <Alert type="info">{t('verified_by_home_affairs')}</Alert>
@@ -185,53 +174,93 @@ const PassportModule = () => {
           )}
 
           {lastSubmission && (
-            <div className="module-card" style={{ marginBottom: 20 }}>
-              <div style={{ padding: 10 }}>
-                <h3 style={{ color: '#006600', marginTop: 0, marginBottom: 16, textAlign: 'center' }}>
-                  ✓ Application received
-                </h3>
-
+            <>
+              {lastSubmission.priority === 'critical' ? (
                 <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                  gap: 14,
+                  background: 'linear-gradient(135deg, #8b0000 0%, #cc0000 100%)',
+                  color: 'white',
+                  borderRadius: 12,
+                  padding: 24,
+                  marginBottom: 20,
+                  boxShadow: '0 8px 24px rgba(204, 0, 0, 0.25)',
                 }}>
-                  <InfoBlock label="Application reference" value={lastSubmission.reference} mono />
-                  <InfoBlock label="Payment reference" value={lastSubmission.paymentReference} mono />
-                  <InfoBlock
-                    label="Amount to pay"
-                    value={`M ${lastSubmission.amount.toLocaleString()}`}
-                    big
-                  />
-                  <InfoBlock label="Collection branch" value={lastSubmission.collectionBranch} />
-                  <InfoBlock
-                    label="Estimated ready date"
-                    value={lastSubmission.readyDate.toLocaleDateString('en-GB', {
-                      day: 'numeric', month: 'long', year: 'numeric',
-                    })}
-                  />
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>🚨</div>
+                  <h2 style={{ margin: '0 0 10px 0', fontSize: 22, color: 'white' }}>
+                    Emergency report received
+                  </h2>
+                  <p style={{ margin: '0 0 16px 0', fontSize: 15, opacity: 0.95 }}>
+                    A response unit has been notified. Please stay calm and stay safe.
+                    If the situation is still dangerous, call <strong>112</strong> immediately.
+                  </p>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: 14,
+                  }}>
+                    <div style={{ background: 'rgba(255,255,255,0.15)', padding: 12, borderRadius: 6 }}>
+                      <div style={{ fontSize: 11, opacity: 0.85, letterSpacing: 1, textTransform: 'uppercase' }}>
+                        Case Number
+                      </div>
+                      <div style={{ fontSize: 18, fontWeight: 'bold', fontFamily: 'monospace', marginTop: 4 }}>
+                        {lastSubmission.caseNumber}
+                      </div>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.15)', padding: 12, borderRadius: 6 }}>
+                      <div style={{ fontSize: 11, opacity: 0.85, letterSpacing: 1, textTransform: 'uppercase' }}>
+                        Estimated Response
+                      </div>
+                      <div style={{ fontSize: 18, fontWeight: 'bold', marginTop: 4 }}>
+                        15–30 minutes
+                      </div>
+                    </div>
+                  </div>
+                  <p style={{ margin: '16px 0 0 0', fontSize: 13, opacity: 0.9 }}>
+                    Track this case from the <strong>My Applications</strong> tab.
+                  </p>
                 </div>
-
-                <div style={{
-                  marginTop: 20,
-                  padding: 16,
-                  background: '#fff8e0',
-                  border: '1px solid #ffe08a',
-                  borderRadius: 6,
-                  fontSize: 13,
-                  color: '#7a5a00',
-                }}>
-                  <strong>How to pay:</strong> Take the payment reference above to any of the
-                  banks listed in the form. You can also pay via M-Pesa or EcoCash. Your application
-                  will only be processed once payment is confirmed.
+              ) : lastSubmission.paymentReference ? (
+                <div className="module-card" style={{ marginBottom: 20 }}>
+                  <div style={{ padding: 10, textAlign: 'center' }}>
+                    <h3 style={{ color: '#006600', marginTop: 0, marginBottom: 8 }}>
+                      ✓ Application received
+                    </h3>
+                    <div style={{
+                      display: 'inline-block',
+                      background: '#f0f6ff',
+                      padding: '12px 24px',
+                      borderRadius: 6,
+                      marginBottom: 12,
+                    }}>
+                      <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 1 }}>
+                        Payment Reference
+                      </div>
+                      <div style={{ fontSize: 20, fontWeight: 'bold', color: '#003366', fontFamily: 'monospace' }}>
+                        {lastSubmission.paymentReference}
+                      </div>
+                    </div>
+                    <p style={{ color: '#666', fontSize: 13, margin: 0 }}>
+                      Pay <strong>M {lastSubmission.amount.toLocaleString()}</strong> at any of the listed banks.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </div>
+              ) : (
+                <div className="module-card" style={{ marginBottom: 20 }}>
+                  <div style={{ padding: 10, textAlign: 'center' }}>
+                    <h3 style={{ color: '#006600', marginTop: 0, marginBottom: 8 }}>
+                      ✓ Report received
+                    </h3>
+                    <p style={{ color: '#666', fontSize: 13, margin: 0 }}>
+                      Case number: <strong style={{ fontFamily: 'monospace' }}>{lastSubmission.caseNumber}</strong>
+                    </p>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {activeTab === 'dashboard' && (
             <div className="module-card">
-              <div className="module-section-title">My Passport Applications</div>
+              <div className="module-section-title">My Police Applications</div>
               <Table
                 headers={['Reference', 'Service', 'Status', 'Submitted', 'Action']}
                 rows={applications.map((a) => [
@@ -239,12 +268,19 @@ const PassportModule = () => {
                   a.service_type,
                   <Badge color={statusColor(a.status)}>{t(a.status)}</Badge>,
                   a.submitted_at?.toDate?.().toLocaleDateString() || '—',
-                  a.status === 'approved' || a.status === 'completed' ? (
+                  isReportService(a.service_type) ? (
+                    <Link
+                      to={`/police/case/${a.application_reference}`}
+                      style={{ color: '#cc0000', fontWeight: 'bold', textDecoration: 'underline', fontSize: 13 }}
+                    >
+                      Track Case
+                    </Link>
+                  ) : a.status === 'approved' || a.status === 'completed' ? (
                     <Link
                       to={`/certificate/${a.application_reference}`}
                       style={{ color: '#003366', fontWeight: 'bold', textDecoration: 'underline', fontSize: 13 }}
                     >
-                      View Document
+                      View Certificate
                     </Link>
                   ) : (
                     <span style={{ color: '#999', fontSize: 12 }}>—</span>
@@ -255,12 +291,20 @@ const PassportModule = () => {
             </div>
           )}
 
-          {activeTab === 'new' && (
-            <PassportForm mode="new" profile={profile} submitting={loading} onSubmit={submit} />
+          {activeTab === 'clearance' && (
+            <PoliceClearanceForm profile={profile} submitting={loading} onSubmit={submit} />
           )}
 
-          {activeTab === 'renewal' && (
-            <PassportForm mode="renewal" profile={profile} submitting={loading} onSubmit={submit} />
+          {activeTab === 'crime' && (
+            <CrimeReportForm profile={profile} submitting={loading} onSubmit={submit} />
+          )}
+
+          {activeTab === 'accident' && (
+            <AccidentReportForm profile={profile} submitting={loading} onSubmit={submit} />
+          )}
+
+          {activeTab === 'cyber' && (
+            <CybercrimeReportForm profile={profile} submitting={loading} onSubmit={submit} />
           )}
         </div>
       </Layout>
@@ -269,391 +313,459 @@ const PassportModule = () => {
 };
 
 // ============================================================
-// PASSPORT FORM
+// POLICE CLEARANCE FORM
 // ============================================================
-const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
-  const isRenewal = mode === 'renewal';
-
-  const [form, setForm] = useState({
-    passport_type: 'Ordinary',
-    book_format: '32-page',
-    processing_speed: 'Standard',
-    travel_purpose: '',
-    departure_date: '',
-    old_passport_number: '',
-    old_passport_issued: '',
-    old_passport_expiry: '',
-    guarantor_name: '',
-    guarantor_id: '',
-    guarantor_phone: '',
+const PoliceClearanceForm = ({ profile, submitting, onSubmit }) => {
+  const INITIAL_FORM = {
+    purpose: '',
+    destination_country: '',
+    period_of_stay: '',
+    bank_name: '',
     collection_branch: 'Maseru',
-    payment_bank: '',
-    truth_declaration: false,
-    data_consent: false,
-  });
+  };
+  const INITIAL_UPLOADS = { national_id: null, fingerprints: null };
 
-  // Real file uploads (instead of the old "I have my..." checkboxes)
-  const [uploads, setUploads] = useState({
-    birth_certificate: null,
-    photos: null,
-    chief_letter: null,
-    old_passport: null,
-  });
-
+  const [form, setForm] = useState(INITIAL_FORM);
+  const [uploads, setUploads] = useState(INITIAL_UPLOADS);
   const [paymentRef] = useState(generatePaymentReference());
 
-  const update = (key, value) => setForm({ ...form, [key]: value });
+  const update = (k, v) => setForm({ ...form, [k]: v });
   const setUpload = (k, v) => setUploads({ ...uploads, [k]: v });
 
-  const fees = computeFees(form.passport_type, form.book_format, form.processing_speed);
-  const readyDate = computeReadyDate(form.processing_speed);
-
-  // Real upload validation — replaces the old checkbox-based check
-  const requiredDocsOK = isRenewal
-    ? uploads.old_passport && uploads.photos
-    : uploads.birth_certificate && uploads.photos;
-
-  const guarantorOK =
-    isRenewal ||
-    (form.guarantor_name.trim() && form.guarantor_id.trim() && form.guarantor_phone.trim());
-
-  const renewalFieldsOK =
-    !isRenewal ||
-    (form.old_passport_number.trim() && form.old_passport_issued && form.old_passport_expiry);
-
   const canSubmit =
-    form.passport_type &&
-    form.book_format &&
-    form.processing_speed &&
-    form.travel_purpose &&
-    form.departure_date &&
-    form.collection_branch &&
-    form.payment_bank &&
-    requiredDocsOK &&
-    guarantorOK &&
-    renewalFieldsOK &&
-    form.truth_declaration &&
-    form.data_consent;
+    form.purpose && form.bank_name && uploads.national_id && uploads.fingerprints;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!canSubmit) return;
-
-    const payload = {
-      passport_type: form.passport_type,
-      book_format: form.book_format,
-      processing_speed: form.processing_speed,
-      travel_purpose: form.travel_purpose,
-      departure_date: form.departure_date,
-      documents_uploaded: isRenewal
-        ? {
-            old_passport: uploads.old_passport,
-            photos: uploads.photos,
-          }
-        : {
-            birth_certificate: uploads.birth_certificate,
-            photos: uploads.photos,
-            chief_letter: uploads.chief_letter,
-          },
-      previous_passport: isRenewal
-        ? {
-            number: form.old_passport_number,
-            issued_date: form.old_passport_issued,
-            expiry_date: form.old_passport_expiry,
-          }
-        : null,
-      guarantor: isRenewal
-        ? null
-        : {
-            full_name: form.guarantor_name,
-            national_id: form.guarantor_id,
-            phone: form.guarantor_phone,
-          },
-      collection_branch: form.collection_branch,
-      payment: {
-        reference: paymentRef,
-        bank: form.payment_bank,
-        status: 'awaiting_payment',
+    await onSubmit(
+      'Police Clearance',
+      {
+        purpose: form.purpose,
+        destination_country: form.destination_country,
+        period_of_stay: form.period_of_stay,
+        collection_branch: form.collection_branch,
+        documents_uploaded: {
+          national_id: uploads.national_id,
+          fingerprints: uploads.fingerprints,
+        },
+        payment: { reference: paymentRef, bank: form.bank_name, status: 'awaiting_payment' },
+        fees: { total: CLEARANCE_FEE },
       },
-      fees,
-      estimated_ready_date: readyDate.toISOString(),
-      declarations: {
-        truth: form.truth_declaration,
-        data_consent: form.data_consent,
-        declared_at: new Date().toISOString(),
-      },
-    };
-
-    await onSubmit(isRenewal ? 'Passport Renewal' : 'New Passport', payload);
+      () => {
+        setForm(INITIAL_FORM);
+        setUploads(INITIAL_UPLOADS);
+      }
+    );
   };
-
-  // Fee rows for shared PaymentBlock
-  const feeRows = [
-    { label: `${form.passport_type} passport · ${form.book_format}`, amount: fees.base },
-  ];
-  if (fees.formatSurcharge > 0) {
-    feeRows.push({ label: '48-page format surcharge', amount: fees.formatSurcharge });
-  }
-  if (fees.speedSurcharge > 0) {
-    feeRows.push({
-      label: `${form.processing_speed} processing surcharge`,
-      amount: fees.speedSurcharge,
-    });
-  }
 
   return (
     <div className="module-card">
-      <div className="module-section-title">
-        {isRenewal ? 'Renew Passport' : 'Apply for a New Passport'}
-      </div>
+      <div className="module-section-title">Police Clearance Certificate</div>
+
+      <Alert type="info">
+        Processing time: ~3 weeks. Required for employment abroad, immigration, and visa applications.
+      </Alert>
 
       <form onSubmit={handleSubmit}>
         <div className="module-section">
           <div className="module-section-title">1 · Applicant</div>
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-            <div style={{
-              width: 60, height: 60, borderRadius: '50%',
-              background: 'linear-gradient(135deg, #003366 0%, #0055aa 100%)',
-              color: 'white',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 24, fontWeight: 'bold', flexShrink: 0,
-            }}>
-              {(profile?.full_name || '?').charAt(0).toUpperCase()}
-            </div>
-            <div style={{ flex: 1, minWidth: 240 }}>
-              <div style={{ fontSize: 16, fontWeight: 'bold', color: '#003366' }}>
-                {profile?.full_name}
-              </div>
-              <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>
-                National ID: {profile?.national_id}
-              </div>
-              <div style={{ fontSize: 13, color: '#666' }}>
-                Date of Birth: {profile?.date_of_birth} · Citizenship:{' '}
-                {profile?.citizenship_status || 'Citizen'}
-              </div>
-            </div>
-          </div>
+          <div style={{ fontSize: 16, fontWeight: 'bold', color: '#003366' }}>{profile?.full_name}</div>
+          <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>National ID: {profile?.national_id}</div>
         </div>
 
         <div className="module-section">
-          <div className="module-section-title">2 · Passport type and format</div>
+          <div className="module-section-title">2 · Purpose</div>
           <FormField
-            label="Passport Type"
+            label="Purpose of Clearance *"
             as="select"
-            value={form.passport_type}
-            onChange={(v) => update('passport_type', v)}
-            options={PASSPORT_TYPES}
-            required
-          />
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', color: '#333', marginBottom: 8 }}>
-              Book Format *
-            </label>
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              {BOOK_FORMATS.map((f) => (
-                <Radio
-                  key={f.value}
-                  checked={form.book_format === f.value}
-                  onChange={() => update('book_format', f.value)}
-                  label={`${f.label}${f.baseSurcharge > 0 ? ` (+ M ${f.baseSurcharge})` : ''}`}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="module-section">
-          <div className="module-section-title">3 · Processing speed</div>
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-            {PROCESSING_SPEEDS.map((s) => (
-              <Radio
-                key={s.value}
-                checked={form.processing_speed === s.value}
-                onChange={() => update('processing_speed', s.value)}
-                label={`${s.label}${s.surcharge > 0 ? ` (+ M ${s.surcharge})` : ''}`}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div className="module-section">
-          <div className="module-section-title">4 · Travel details</div>
-          <FormField
-            label="Purpose of Travel"
-            as="select"
-            value={form.travel_purpose}
-            onChange={(v) => update('travel_purpose', v)}
-            options={TRAVEL_PURPOSES}
+            value={form.purpose}
+            onChange={(v) => update('purpose', v)}
+            options={CLEARANCE_PURPOSES}
             required
           />
           <FormField
-            label="Planned Departure Date"
-            type="date"
-            value={form.departure_date}
-            onChange={(v) => update('departure_date', v)}
-            required
+            label="Destination Country (if applicable)"
+            value={form.destination_country}
+            onChange={(v) => update('destination_country', v)}
+            placeholder="e.g. South Africa, United Kingdom"
+          />
+          <FormField
+            label="Period of Stay in Lesotho"
+            value={form.period_of_stay}
+            onChange={(v) => update('period_of_stay', v)}
+            placeholder="e.g. 2010 to present"
           />
         </div>
 
-        {isRenewal && (
-          <div className="module-section">
-            <div className="module-section-title">5 · Previous passport</div>
-            <FormField
-              label="Old Passport Number"
-              value={form.old_passport_number}
-              onChange={(v) => update('old_passport_number', v.toUpperCase())}
-              placeholder="e.g. LS1234567"
-              required
-            />
-            <FormField
-              label="Date Issued"
-              type="date"
-              value={form.old_passport_issued}
-              onChange={(v) => update('old_passport_issued', v)}
-              required
-            />
-            <FormField
-              label="Date of Expiry"
-              type="date"
-              value={form.old_passport_expiry}
-              onChange={(v) => update('old_passport_expiry', v)}
-              required
-            />
-          </div>
-        )}
-
-        {/* ---- Real upload section (replaces fake checkboxes) ---- */}
         <div className="module-section">
-          <div className="module-section-title">
-            {isRenewal ? '6 · Upload your documents' : '5 · Upload your documents'}
-          </div>
-          <p style={{ fontSize: 13, color: '#666', marginTop: 0, marginBottom: 12 }}>
-            Take clear photos or scans of each document and upload them below. JPG, PNG, or PDF.
-          </p>
-
-          {isRenewal ? (
-            <>
-              <CloudinaryUpload
-                label="Old Passport (photo of the data page) *"
-                onUpload={(url) => setUpload('old_passport', url)}
-              />
-              <CloudinaryUpload
-                label="2 Passport-size Photos (taken within 6 months) *"
-                onUpload={(url) => setUpload('photos', url)}
-              />
-            </>
-          ) : (
-            <>
-              <CloudinaryUpload
-                label="Birth Certificate (original) *"
-                onUpload={(url) => setUpload('birth_certificate', url)}
-              />
-              <CloudinaryUpload
-                label="2 Passport-size Photos (taken within 6 months) *"
-                onUpload={(url) => setUpload('photos', url)}
-              />
-              <CloudinaryUpload
-                label="Chief's Confirmation Letter (optional for urban residents)"
-                onUpload={(url) => setUpload('chief_letter', url)}
-              />
-            </>
-          )}
+          <div className="module-section-title">3 · Upload your documents</div>
+          <CloudinaryUpload
+            label="Original National ID *"
+            onUpload={(url) => setUpload('national_id', url)}
+          />
+          <CloudinaryUpload
+            label="Fingerprint Record (from police station) *"
+            onUpload={(url) => setUpload('fingerprints', url)}
+          />
         </div>
 
-        {!isRenewal && (
-          <div className="module-section">
-            <div className="module-section-title">6 · Guarantor</div>
-            <p style={{ fontSize: 13, color: '#666', marginTop: 0 }}>
-              A guarantor is a person who can confirm your identity. It must be someone who has known you
-              for at least 2 years and is not a family member.
-            </p>
-            <FormField
-              label="Guarantor Full Name"
-              value={form.guarantor_name}
-              onChange={(v) => update('guarantor_name', v)}
-              required
-            />
-            <FormField
-              label="Guarantor National ID"
-              value={form.guarantor_id}
-              onChange={(v) => update('guarantor_id', v)}
-              required
-            />
-            <FormField
-              label="Guarantor Phone Number"
-              value={form.guarantor_phone}
-              onChange={(v) => update('guarantor_phone', v)}
-              placeholder="e.g. +266 5800 0000"
-              required
-            />
-          </div>
-        )}
-
         <div className="module-section">
-          <div className="module-section-title">7 · Collection branch</div>
+          <div className="module-section-title">4 · Collection branch</div>
           <FormField
-            label="Where would you like to collect your passport?"
+            label="Where will you collect your certificate?"
             as="select"
             value={form.collection_branch}
             onChange={(v) => update('collection_branch', v)}
             options={DISTRICTS.map((d) => ({ value: d, label: d }))}
             required
           />
-          <p style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-            You can collect at any of the 10 district offices. Your passport will be sent there after
-            printing in Maseru.
-          </p>
+        </div>
+
+        <div className="module-section" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+          <div className="module-section-title">5 · Payment</div>
+          <PaymentBlock
+            reference={paymentRef}
+            bankName={form.bank_name}
+            onBankChange={(v) => update('bank_name', v)}
+            rows={[{ label: 'Police Clearance Fee', amount: CLEARANCE_FEE }]}
+            total={CLEARANCE_FEE}
+          />
+        </div>
+
+        <SubmitButton canSubmit={canSubmit} submitting={submitting} />
+      </form>
+    </div>
+  );
+};
+
+// ============================================================
+// CRIME REPORT FORM
+// ============================================================
+const CrimeReportForm = ({ profile, submitting, onSubmit }) => {
+  const INITIAL_FORM = {
+    crime_type: '',
+    location: '',
+    incident_date: '',
+    description: '',
+    witnesses: '',
+  };
+
+  const [form, setForm] = useState(INITIAL_FORM);
+  const [evidenceUrl, setEvidenceUrl] = useState(null);
+
+  const update = (k, v) => setForm({ ...form, [k]: v });
+
+  const canSubmit =
+    form.crime_type &&
+    form.location.trim() &&
+    form.incident_date &&
+    form.description.trim().length >= 20;
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!canSubmit) return;
+    await onSubmit(
+      'Crime Report',
+      {
+        crime_type: form.crime_type,
+        location: form.location,
+        incident_date: form.incident_date,
+        description: form.description,
+        witnesses: form.witnesses,
+        evidence_url: evidenceUrl,
+      },
+      () => {
+        setForm(INITIAL_FORM);
+        setEvidenceUrl(null);
+      }
+    );
+  };
+
+  return (
+    <div className="module-card">
+      <div className="module-section-title">Report a Crime</div>
+
+      <Alert type="warning">
+        ⚠ For emergencies, call <strong>112</strong> or visit your nearest police station immediately.
+      </Alert>
+
+      <form onSubmit={handleSubmit}>
+        <div className="module-section">
+          <div className="module-section-title">1 · Reporter</div>
+          <div style={{ fontSize: 15, fontWeight: 'bold', color: '#003366' }}>{profile?.full_name}</div>
+          <div style={{ fontSize: 13, color: '#666' }}>National ID: {profile?.national_id}</div>
         </div>
 
         <div className="module-section">
-          <div className="module-section-title">9 · Payment</div>
-          <PaymentBlock
-            reference={paymentRef}
-            bankName={form.payment_bank}
-            onBankChange={(v) => update('payment_bank', v)}
-            rows={feeRows}
-            total={fees.total}
+          <div className="module-section-title">2 · Incident details</div>
+          <FormField
+            label="Crime Type *"
+            as="select"
+            value={form.crime_type}
+            onChange={(v) => update('crime_type', v)}
+            options={CRIME_TYPES}
+            required
+          />
+          <FormField
+            label="Location of Incident *"
+            value={form.location}
+            onChange={(v) => update('location', v)}
+            placeholder="e.g. Ha Thetsane, Maseru"
+            required
+          />
+          <FormField
+            label="Date of Incident *"
+            type="date"
+            value={form.incident_date}
+            onChange={(v) => update('incident_date', v)}
+            required
+          />
+          <FormField
+            label="Description *"
+            as="textarea"
+            value={form.description}
+            onChange={(v) => update('description', v)}
+            placeholder="Describe what happened, who was involved, and any other relevant details..."
+            rows={5}
+            required
+          />
+          <FormField
+            label="Witnesses (optional)"
+            value={form.witnesses}
+            onChange={(v) => update('witnesses', v)}
+            placeholder="Names and contact numbers of anyone who witnessed the incident"
           />
         </div>
 
         <div className="module-section" style={{ borderBottom: 'none', paddingBottom: 0 }}>
-          <div className="module-section-title">10 · Declarations</div>
-          <Checkbox
-            checked={form.truth_declaration}
-            onChange={(v) => update('truth_declaration', v)}
-            label="I declare that the information provided is true and correct. I understand that providing false information is an offence under the Passports Act."
-          />
-          <Checkbox
-            checked={form.data_consent}
-            onChange={(v) => update('data_consent', v)}
-            label="I consent to a data verification against Home Affairs, the Lesotho Mounted Police Service, and the Department of Traffic."
+          <div className="module-section-title">3 · Upload your evidence</div>
+          <CloudinaryUpload
+            label="Evidence (photos, videos, documents)"
+            onUpload={(url) => setEvidenceUrl(url)}
           />
         </div>
 
-        <div style={{
-          background: '#fff8e0',
-          border: '1px solid #ffe08a',
-          borderRadius: 6,
-          padding: 14,
-          fontSize: 13,
-          color: '#7a5a00',
-          marginBottom: 20,
-        }}>
-          Based on <strong>{form.processing_speed}</strong> processing, your passport should be
-          ready for collection around{' '}
-          <strong>
-            {readyDate.toLocaleDateString('en-GB', {
-              day: 'numeric', month: 'long', year: 'numeric',
-            })}
-          </strong>{' '}
-          at <strong>{form.collection_branch}</strong>.
+        <SubmitButton canSubmit={canSubmit} submitting={submitting} label="Submit Crime Report" />
+      </form>
+    </div>
+  );
+};
+
+// ============================================================
+// ACCIDENT REPORT FORM
+// ============================================================
+const AccidentReportForm = ({ profile, submitting, onSubmit }) => {
+  const INITIAL_FORM = {
+    location: '',
+    accident_date: '',
+    vehicles_involved: '',
+    injuries: '',
+    description: '',
+    police_station: '',
+  };
+
+  const [form, setForm] = useState(INITIAL_FORM);
+  const [evidenceUrl, setEvidenceUrl] = useState(null);
+
+  const update = (k, v) => setForm({ ...form, [k]: v });
+
+  const canSubmit =
+    form.location.trim() &&
+    form.accident_date &&
+    form.description.trim().length >= 20;
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!canSubmit) return;
+    await onSubmit(
+      'Traffic Accident Report',
+      {
+        location: form.location,
+        accident_date: form.accident_date,
+        vehicles_involved: form.vehicles_involved,
+        injuries: form.injuries,
+        description: form.description,
+        police_station: form.police_station,
+        evidence_url: evidenceUrl,
+      },
+      () => {
+        setForm(INITIAL_FORM);
+        setEvidenceUrl(null);
+      }
+    );
+  };
+
+  return (
+    <div className="module-card">
+      <div className="module-section-title">Traffic Accident Report</div>
+
+      <Alert type="info">
+        For accidents with injuries, call 112 or go to the nearest police station.
+      </Alert>
+
+      <form onSubmit={handleSubmit}>
+        <div className="module-section">
+          <div className="module-section-title">1 · Reporter</div>
+          <div style={{ fontSize: 15, fontWeight: 'bold', color: '#003366' }}>{profile?.full_name}</div>
         </div>
 
-        <SubmitButton
-          canSubmit={canSubmit}
-          submitting={submitting}
-          label={isRenewal ? 'Submit Renewal' : 'Submit Application'}
-        />
+        <div className="module-section">
+          <div className="module-section-title">2 · Accident details</div>
+          <FormField
+            label="Location *"
+            value={form.location}
+            onChange={(v) => update('location', v)}
+            placeholder="e.g. Main South 1, near Roma turn-off"
+            required
+          />
+          <FormField
+            label="Date and Time *"
+            type="datetime-local"
+            value={form.accident_date}
+            onChange={(v) => update('accident_date', v)}
+            required
+          />
+          <FormField
+            label="Vehicles Involved"
+            value={form.vehicles_involved}
+            onChange={(v) => update('vehicles_involved', v)}
+            placeholder="e.g. Toyota Hilux A1234, BMW B5678"
+          />
+          <FormField
+            label="Injuries"
+            value={form.injuries}
+            onChange={(v) => update('injuries', v)}
+            placeholder="Any injuries sustained?"
+          />
+          <FormField
+            label="Description *"
+            as="textarea"
+            value={form.description}
+            onChange={(v) => update('description', v)}
+            placeholder="Describe how the accident happened..."
+            rows={4}
+            required
+          />
+          <FormField
+            label="Police Station (if reported)"
+            value={form.police_station}
+            onChange={(v) => update('police_station', v)}
+            placeholder="e.g. Maseru Central"
+          />
+        </div>
+
+        <div className="module-section" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+          <div className="module-section-title">3 · Upload your evidence</div>
+          <CloudinaryUpload
+            label="Evidence (photos, documents)"
+            onUpload={(url) => setEvidenceUrl(url)}
+          />
+        </div>
+
+        <SubmitButton canSubmit={canSubmit} submitting={submitting} label="Submit Accident Report" />
+      </form>
+    </div>
+  );
+};
+
+// ============================================================
+// CYBERCRIME REPORT FORM
+// ============================================================
+const CybercrimeReportForm = ({ profile, submitting, onSubmit }) => {
+  const INITIAL_FORM = {
+    cyber_type: '',
+    platform: '',
+    description: '',
+    financial_loss: '',
+  };
+
+  const [form, setForm] = useState(INITIAL_FORM);
+  const [evidenceUrl, setEvidenceUrl] = useState(null);
+
+  const update = (k, v) => setForm({ ...form, [k]: v });
+
+  const canSubmit =
+    form.cyber_type &&
+    form.platform.trim() &&
+    form.description.trim().length >= 20;
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!canSubmit) return;
+    await onSubmit(
+      'Cybercrime Report',
+      {
+        cybercrime_type: form.cyber_type,
+        platform: form.platform,
+        description: form.description,
+        financial_loss: form.financial_loss,
+        evidence_url: evidenceUrl,
+      },
+      () => {
+        setForm(INITIAL_FORM);
+        setEvidenceUrl(null);
+      }
+    );
+  };
+
+  return (
+    <div className="module-card">
+      <div className="module-section-title">Report a Cybercrime</div>
+
+      <Alert type="info">
+        The LMPS Cybercrime Unit handles online fraud, harassment, identity theft, and hacking.
+      </Alert>
+
+      <form onSubmit={handleSubmit}>
+        <div className="module-section">
+          <div className="module-section-title">1 · Reporter</div>
+          <div style={{ fontSize: 15, fontWeight: 'bold', color: '#003366' }}>{profile?.full_name}</div>
+        </div>
+
+        <div className="module-section">
+          <div className="module-section-title">2 · Cybercrime details</div>
+          <FormField
+            label="Type of Cybercrime *"
+            as="select"
+            value={form.cyber_type}
+            onChange={(v) => update('cyber_type', v)}
+            options={CYBERCRIME_TYPES}
+            required
+          />
+          <FormField
+            label="Platform / Service *"
+            value={form.platform}
+            onChange={(v) => update('platform', v)}
+            placeholder="e.g. Facebook, WhatsApp, M-Pesa"
+            required
+          />
+          <FormField
+            label="Financial Loss (if any)"
+            value={form.financial_loss}
+            onChange={(v) => update('financial_loss', v)}
+            placeholder="e.g. M 2,500"
+          />
+          <FormField
+            label="Description *"
+            as="textarea"
+            value={form.description}
+            onChange={(v) => update('description', v)}
+            placeholder="Describe what happened in detail..."
+            rows={5}
+            required
+          />
+        </div>
+
+        <div className="module-section" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+          <div className="module-section-title">3 · Upload your evidence</div>
+          <CloudinaryUpload
+            label="Evidence (screenshots, records, documents)"
+            onUpload={(url) => setEvidenceUrl(url)}
+          />
+        </div>
+
+        <SubmitButton canSubmit={canSubmit} submitting={submitting} label="Submit Cybercrime Report" />
       </form>
     </div>
   );
@@ -662,71 +774,6 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
 // ============================================================
 // REUSABLE PIECES
 // ============================================================
-const Radio = ({ checked, onChange, label }) => (
-  <label style={{
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    fontSize: 14,
-    color: '#333',
-    cursor: 'pointer',
-  }}>
-    <input type="radio" checked={checked} onChange={onChange} />
-    {label}
-  </label>
-);
-
-const Checkbox = ({ checked, onChange, label }) => (
-  <div style={{ marginBottom: 12 }}>
-    <label style={{
-      display: 'flex',
-      alignItems: 'flex-start',
-      gap: 10,
-      fontSize: 14,
-      color: '#333',
-      cursor: 'pointer',
-      lineHeight: 1.4,
-    }}>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        style={{ marginTop: 3 }}
-      />
-      <span>{label}</span>
-    </label>
-  </div>
-);
-
-const InfoBlock = ({ label, value, mono, big }) => (
-  <div style={{
-    background: '#f9f9f9',
-    border: '1px solid #e0e0e0',
-    borderRadius: 6,
-    padding: 12,
-  }}>
-    <div style={{
-      fontSize: 10,
-      color: '#888',
-      textTransform: 'uppercase',
-      letterSpacing: 1,
-      fontWeight: 'bold',
-      marginBottom: 4,
-    }}>
-      {label}
-    </div>
-    <div style={{
-      fontSize: big ? 20 : 14,
-      fontWeight: 'bold',
-      color: '#003366',
-      fontFamily: mono ? 'monospace' : 'inherit',
-      letterSpacing: mono ? 1 : 0,
-    }}>
-      {value}
-    </div>
-  </div>
-);
-
 const SubmitButton = ({ canSubmit, submitting, label = 'Submit Application' }) => (
   <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 24 }}>
     <button
@@ -761,7 +808,7 @@ const SubmitButton = ({ canSubmit, submitting, label = 'Submit Application' }) =
     >
       {submitting ? 'Submitting...' : label}
     </button>
-    <Link to="/passport" style={{
+    <Link to="/police" style={{
       background: 'white',
       color: '#003366',
       border: '1px solid #003366',
@@ -776,4 +823,4 @@ const SubmitButton = ({ canSubmit, submitting, label = 'Submit Application' }) =
   </div>
 );
 
-export default PassportModule;
+export default PoliceModule;
