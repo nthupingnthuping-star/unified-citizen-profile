@@ -12,7 +12,7 @@ export const SAMPLE_CITIZENS = [
     gender: 'Male',
     residential_address: 'Maseru West, Ha Hoohlo',
     phone_number: '+266 5888 1234',
-    citizenship_status: 'Citizen',
+    citizenship_status: 'Mosotho',
     verified_by_home_affairs: true,
   },
   {
@@ -24,7 +24,7 @@ export const SAMPLE_CITIZENS = [
     gender: 'Female',
     residential_address: 'Maseru East, Lithabaneng',
     phone_number: '+266 5777 5678',
-    citizenship_status: 'Citizen',
+    citizenship_status: 'Mosotho',
     verified_by_home_affairs: true,
   },
   {
@@ -36,7 +36,7 @@ export const SAMPLE_CITIZENS = [
     gender: 'Female',
     residential_address: 'Berea, Teyateyaneng',
     phone_number: '+266 5999 9012',
-    citizenship_status: 'Citizen',
+    citizenship_status: 'Mosotho',
     verified_by_home_affairs: true,
   },
 ];

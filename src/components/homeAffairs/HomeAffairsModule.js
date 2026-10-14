@@ -7,7 +7,10 @@ import {
   getMyApplications,
   DEPARTMENTS,
   DISTRICTS,
+  saveCitizenPhoto,
+  updateCitizenContact,
 } from '../../firebase/db';
+import useAutoFill from '../../hooks/useAutoFill';
 import Layout from '../common/Layout';
 import Alert from '../common/Alert';
 import Badge from '../common/Badge';
@@ -26,6 +29,7 @@ const DOCUMENT_TYPES = [
   { value: 'ID Replacement', label: 'National ID — Replacement (lost / damaged)', fee: 0, processing: '10 working days' },
   { value: 'Birth Certificate', label: 'Birth Certificate', fee: 0, processing: '5 working days' },
   { value: 'Marriage Certificate', label: 'Marriage Certificate', fee: 50, processing: '5 working days' },
+  { value: 'Death Certificate', label: 'Death Certificate (report a death)', fee: 0, processing: '5 working days' },
   { value: 'Citizenship Certificate', label: 'Citizenship Certificate', fee: 0, processing: '30 working days' },
   { value: 'Change of Name', label: 'Change of Name', fee: 150, processing: '15 working days' },
   { value: 'Proof of Identity', label: 'Proof of Identity Letter', fee: 0, processing: '1 working day' },
@@ -63,7 +67,7 @@ const getInitials = (fullName) => {
 // MAIN COMPONENT
 // ============================================================
 const HomeAffairsModule = () => {
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const { t } = useLanguage();
 
   const [applications, setApplications] = useState([]);
@@ -220,7 +224,9 @@ const HomeAffairsModule = () => {
             </div>
           )}
 
-          {activeTab === 'identity' && <MyIdentityTab profile={profile} />}
+          {activeTab === 'identity' && (
+            <MyIdentityTab profile={profile} onPhotoUpdated={refreshProfile} />
+          )}
 
           {activeTab === 'documents' && (
             <DocumentRequestForm profile={profile} submitting={loading} onSubmit={submit} />
@@ -238,7 +244,7 @@ const HomeAffairsModule = () => {
                 rows={applications.map((a) => [
                   a.application_reference,
                   a.service_type,
-                  <Badge color={statusColor(a.status)}>{t(a.status)}</Badge>,
+                  <Badge color={statusColor(a.status)}>{a.status}</Badge>,
                   a.submitted_at?.toDate?.().toLocaleDateString() || '—',
                   a.status === 'approved' || a.status === 'completed' ? (
                     <Link
@@ -251,7 +257,7 @@ const HomeAffairsModule = () => {
                     <span style={{ color: '#999', fontSize: 12 }}>—</span>
                   ),
                 ])}
-                emptyMessage={t('no_applications_yet')}
+                emptyMessage="No applications yet."
               />
             </div>
           )}
@@ -262,58 +268,132 @@ const HomeAffairsModule = () => {
 };
 
 // ============================================================
-// TAB 1 — MY IDENTITY
+// TAB 1 — MY IDENTITY (with photo change)
 // ============================================================
-const MyIdentityTab = ({ profile }) => {
+const MyIdentityTab = ({ profile, onPhotoUpdated }) => {
   const initials = getInitials(profile?.full_name);
-  const hasPhoto = !!profile?.photo_url;
+  const [photoUrl, setPhotoUrl] = useState(profile?.photo_url || '');
+  const [uploading, setUploading] = useState(false);
+  const [photoError, setPhotoError] = useState('');
+  const [contactForm, setContactForm] = useState({
+    phone_number: profile?.phone_number || '',
+    email: profile?.email || '',
+    residential_address: profile?.residential_address || '',
+  });
+  const [contactSaving, setContactSaving] = useState(false);
+  const [contactMessage, setContactMessage] = useState('');
+
+  // Keep local state in sync if profile updates elsewhere
+  useEffect(() => {
+    if (profile?.photo_url) setPhotoUrl(profile.photo_url);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.photo_url]);
+
+  const handlePhotoChange = async (newUrl) => {
+    if (!newUrl) return;
+    setUploading(true);
+    setPhotoError('');
+    try {
+      await saveCitizenPhoto(profile.uid, newUrl);
+      setPhotoUrl(newUrl);
+      if (onPhotoUpdated) onPhotoUpdated();
+    } catch (err) {
+      setPhotoError(err.message || 'Failed to update photo.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleContactSave = async () => {
+    setContactSaving(true);
+    setContactMessage('');
+    try {
+      await updateCitizenContact(profile.uid, contactForm);
+      setContactMessage('✓ Contact details updated.');
+    } catch (err) {
+      setContactMessage(`✗ ${err.message || 'Failed to save.'}`);
+    } finally {
+      setContactSaving(false);
+    }
+  };
+
+  const hasPhoto = !!photoUrl;
 
   return (
     <div className="module-card">
       <div style={{
         display: 'flex',
-        gap: 20,
+        gap: 24,
         flexWrap: 'wrap',
         alignItems: 'flex-start',
-        paddingBottom: 20,
+        paddingBottom: 24,
         borderBottom: '1px solid #eee',
-        marginBottom: 20,
+        marginBottom: 24,
       }}>
-        <div style={{
-          width: 90,
-          height: 90,
-          borderRadius: '50%',
-          background: 'linear-gradient(135deg, #003366 0%, #0055aa 100%)',
-          color: 'white',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 36,
-          fontWeight: 'bold',
-          flexShrink: 0,
-          letterSpacing: 2,
-          boxShadow: '0 4px 16px rgba(0, 51, 102, 0.22)',
-          overflow: 'hidden',
-        }}>
-          {hasPhoto ? (
-            <img
-              src={profile.photo_url}
-              alt={profile?.full_name}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        {/* Photo with change button */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <div style={{
+            width: 110,
+            height: 110,
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #003366 0%, #0055aa 100%)',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 40,
+            fontWeight: 'bold',
+            letterSpacing: 2,
+            boxShadow: '0 6px 22px rgba(0, 51, 102, 0.25)',
+            overflow: 'hidden',
+            position: 'relative',
+          }}>
+            {hasPhoto ? (
+              <img
+                src={photoUrl}
+                alt={profile?.full_name}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              initials
+            )}
+            {uploading && (
+              <div style={{
+                position: 'absolute', inset: 0,
+                background: 'rgba(0,0,0,0.55)', color: 'white',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 12, fontWeight: 'bold',
+              }}>
+                Uploading…
+              </div>
+            )}
+          </div>
+
+          <div style={{ width: '100%', maxWidth: 240 }}>
+            <CloudinaryUpload
+              label={hasPhoto ? 'Change photo' : 'Add photo'}
+              onUpload={handlePhotoChange}
             />
-          ) : (
-            initials
-          )}
+            {photoError && (
+              <div style={{ color: '#cc0000', fontSize: 12, marginTop: 6, textAlign: 'center' }}>
+                {photoError}
+              </div>
+            )}
+          </div>
         </div>
 
+        {/* Identity summary */}
         <div style={{ flex: 1, minWidth: 260 }}>
-          <h2 style={{ margin: 0, color: '#003366', fontSize: 22 }}>
+          <h2 style={{ margin: 0, color: '#003366', fontSize: 24 }}>
             {profile?.full_name}
           </h2>
-          <div style={{ fontSize: 13, color: '#666', marginTop: 6 }}>
+          <div style={{ fontSize: 14, color: '#666', marginTop: 8 }}>
             National ID: <strong>{profile?.national_id}</strong>
           </div>
-          <div style={{ marginTop: 10 }}>
+          <div style={{ fontSize: 14, color: '#666', marginTop: 4 }}>
+            Citizenship: <strong>{profile?.citizenship_status || 'Mosotho'}</strong>
+          </div>
+          <div style={{ marginTop: 14 }}>
             {profile?.verified_by_home_affairs ? (
               <span style={{
                 background: '#d4edda',
@@ -347,14 +427,55 @@ const MyIdentityTab = ({ profile }) => {
         <Row label="National ID" value={profile?.national_id} />
         <Row label="Date of Birth" value={profile?.date_of_birth} />
         <Row label="Gender" value={profile?.gender} />
-        <Row label="Citizenship" value={profile?.citizenship_status || 'Citizen'} />
+        <Row label="Citizenship" value={profile?.citizenship_status || 'Mosotho'} />
       </div>
 
       <div className="module-section">
-        <div className="module-section-title">Contact</div>
-        <Row label="Phone" value={profile?.phone_number} />
-        <Row label="Email" value={profile?.email} />
-        <Row label="Residential Address" value={profile?.residential_address} />
+        <div className="module-section-title">Contact details</div>
+        <FormField
+          label="Phone Number"
+          value={contactForm.phone_number}
+          onChange={(v) => setContactForm({ ...contactForm, phone_number: v })}
+        />
+        <FormField
+          label="Email"
+          type="email"
+          value={contactForm.email}
+          onChange={(v) => setContactForm({ ...contactForm, email: v })}
+        />
+        <FormField
+          label="Residential Address"
+          value={contactForm.residential_address}
+          onChange={(v) => setContactForm({ ...contactForm, residential_address: v })}
+        />
+        {contactMessage && (
+          <div style={{
+            fontSize: 13,
+            marginTop: 8,
+            marginBottom: 10,
+            color: contactMessage.startsWith('✓') ? '#006600' : '#cc0000',
+            fontWeight: 'bold',
+          }}>
+            {contactMessage}
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={handleContactSave}
+          disabled={contactSaving}
+          style={{
+            background: contactSaving ? '#999' : '#003366',
+            color: 'white',
+            border: 'none',
+            padding: '10px 22px',
+            borderRadius: 999,
+            fontSize: 14,
+            fontWeight: 'bold',
+            cursor: contactSaving ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {contactSaving ? 'Saving…' : 'Save Contact Details'}
+        </button>
       </div>
 
       {profile?.id_document_url && (
@@ -380,9 +501,9 @@ const MyIdentityTab = ({ profile }) => {
         <div className="module-section-title">ID status</div>
         <Row
           label="ID Status"
-          value={profile?.id_status === 'lost' ? '⚠ Reported lost' : 'Active'}
+          value={profile?.deceased ? 'Deceased' : profile?.id_status === 'lost' ? '⚠ Reported lost' : 'Active'}
         />
-        {profile?.id_blocked && (
+        {profile?.id_blocked && !profile?.deceased && (
           <div style={{
             marginTop: 12,
             background: '#fff0f0',
@@ -402,7 +523,7 @@ const MyIdentityTab = ({ profile }) => {
 };
 
 // ============================================================
-// TAB 2 — REQUEST A DOCUMENT
+// TAB 2 — REQUEST A DOCUMENT (with auto-fill + death cert)
 // ============================================================
 const DocumentRequestForm = ({ profile, submitting, onSubmit }) => {
   const [form, setForm] = useState({
@@ -410,6 +531,11 @@ const DocumentRequestForm = ({ profile, submitting, onSubmit }) => {
     reason: '',
     bank_name: '',
     collection_branch: 'Maseru',
+    deceased_full_name: '',
+    deceased_national_id: '',
+    deceased_date_of_death: '',
+    deceased_place_of_death: '',
+    relationship_to_deceased: '',
     truth_declaration: false,
   });
 
@@ -417,9 +543,13 @@ const DocumentRequestForm = ({ profile, submitting, onSubmit }) => {
     national_id: null,
     police_report: null,
     supporting: null,
+    death_evidence: null,
   });
 
   const [paymentRef] = useState(() => generatePaymentReference());
+
+  // Auto-fill from profile
+  useAutoFill(profile, form, setForm);
 
   const update = (k, v) => setForm({ ...form, [k]: v });
   const setUpload = (k, v) => setUploaded({ ...uploaded, [k]: v });
@@ -427,16 +557,34 @@ const DocumentRequestForm = ({ profile, submitting, onSubmit }) => {
   const docMeta = DOCUMENT_TYPES.find((d) => d.value === form.document_type);
   const fee = docMeta?.fee || 0;
   const needsPayment = fee > 0;
+  const isDeathCertificate = form.document_type === 'Death Certificate';
 
   const canSubmit =
     form.document_type &&
     (!needsPayment || form.bank_name) &&
     uploaded.national_id &&
-    form.truth_declaration;
+    form.truth_declaration &&
+    (!isDeathCertificate ||
+      (form.deceased_full_name.trim() &&
+        form.deceased_date_of_death &&
+        form.relationship_to_deceased.trim()));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!canSubmit) return;
+
+    const extra = isDeathCertificate
+      ? {
+          deceased: {
+            full_name: form.deceased_full_name,
+            national_id: form.deceased_national_id,
+            date_of_death: form.deceased_date_of_death,
+            place_of_death: form.deceased_place_of_death,
+            relationship: form.relationship_to_deceased,
+          },
+        }
+      : {};
+
     await onSubmit(form.document_type, {
       document_type: form.document_type,
       reason: form.reason,
@@ -445,7 +593,9 @@ const DocumentRequestForm = ({ profile, submitting, onSubmit }) => {
         national_id: uploaded.national_id,
         police_report: uploaded.police_report,
         supporting: uploaded.supporting,
+        death_evidence: uploaded.death_evidence,
       },
+      ...extra,
       payment: needsPayment
         ? { reference: paymentRef, bank: form.bank_name, status: 'awaiting_payment' }
         : null,
@@ -518,14 +668,59 @@ const DocumentRequestForm = ({ profile, submitting, onSubmit }) => {
           />
         </div>
 
+        {isDeathCertificate && (
+          <div className="module-section">
+            <div className="module-section-title">3 · Deceased details</div>
+            <Alert type="warning">
+              When this Death Certificate is approved by Home Affairs, the deceased's
+              citizen record will be marked as deceased. All government services for
+              that person will be closed immediately.
+            </Alert>
+            <FormField
+              label="Deceased Full Name *"
+              value={form.deceased_full_name}
+              onChange={(v) => update('deceased_full_name', v)}
+              required
+            />
+            <FormField
+              label="Deceased National ID"
+              value={form.deceased_national_id}
+              onChange={(v) => update('deceased_national_id', v)}
+              placeholder="If known"
+            />
+            <FormField
+              label="Date of Death *"
+              type="date"
+              value={form.deceased_date_of_death}
+              onChange={(v) => update('deceased_date_of_death', v)}
+              required
+            />
+            <FormField
+              label="Place of Death"
+              value={form.deceased_place_of_death}
+              onChange={(v) => update('deceased_place_of_death', v)}
+              placeholder="e.g. Maseru, Queen Mamohato Hospital"
+            />
+            <FormField
+              label="Your Relationship to the Deceased *"
+              value={form.relationship_to_deceased}
+              onChange={(v) => update('relationship_to_deceased', v)}
+              placeholder="e.g. Son, Daughter, Spouse"
+              required
+            />
+          </div>
+        )}
+
         <div className="module-section">
-          <div className="module-section-title">3 · Upload your documents</div>
+          <div className="module-section-title">
+            {isDeathCertificate ? '4 · Upload documents' : '3 · Upload your documents'}
+          </div>
           <p style={{ fontSize: 13, color: '#666', marginTop: 0, marginBottom: 16 }}>
             Take clear photos of each document and upload them below. JPG, PNG, or PDF.
           </p>
 
           <CloudinaryUpload
-            label="Current National ID or Police Report *"
+            label={isDeathCertificate ? 'Your ID (applicant) *' : 'Current National ID or Police Report *'}
             onUpload={(url) => setUpload('national_id', url)}
           />
 
@@ -534,6 +729,13 @@ const DocumentRequestForm = ({ profile, submitting, onSubmit }) => {
             onUpload={(url) => setUpload('police_report', url)}
           />
 
+          {isDeathCertificate && (
+            <CloudinaryUpload
+              label="Medical Certificate of Cause of Death *"
+              onUpload={(url) => setUpload('death_evidence', url)}
+            />
+          )}
+
           <CloudinaryUpload
             label="Supporting Document (birth certificate, marriage certificate, etc.)"
             onUpload={(url) => setUpload('supporting', url)}
@@ -541,7 +743,9 @@ const DocumentRequestForm = ({ profile, submitting, onSubmit }) => {
         </div>
 
         <div className="module-section">
-          <div className="module-section-title">4 · Collection branch</div>
+          <div className="module-section-title">
+            {isDeathCertificate ? '5 · Collection branch' : '4 · Collection branch'}
+          </div>
           <FormField
             label="Where would you like to collect your document?"
             as="select"

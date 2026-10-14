@@ -6,8 +6,10 @@ import {
   submitApplication,
   getMyApplications,
   DEPARTMENTS,
+  updateCitizenEmployment,
 } from '../../firebase/db';
 import { calculateAge, checkEligibility } from '../../firebase/eligibility';
+import useAutoFill from '../../hooks/useAutoFill';
 import Layout from '../common/Layout';
 import Alert from '../common/Alert';
 import Badge from '../common/Badge';
@@ -34,6 +36,15 @@ const ACCOUNT_TYPE_OPTIONS = [
   { value: 'Savings', label: 'Savings account' },
   { value: 'M-Pesa', label: 'M-Pesa wallet' },
   { value: 'EcoCash', label: 'EcoCash wallet' },
+];
+
+const EMPLOYMENT_TYPES = [
+  { value: '', label: '— Select —' },
+  { value: 'Government', label: 'Government employee' },
+  { value: 'Private sector', label: 'Private sector employee' },
+  { value: 'Self-employed', label: 'Self-employed' },
+  { value: 'Unemployed', label: 'Unemployed' },
+  { value: 'Retired', label: 'Retired' },
 ];
 
 const DISABILITY_TYPE_OPTIONS = [
@@ -74,8 +85,11 @@ const PensionsModule = () => {
   const [message, setMessage] = useState('');
   const [lastSubmission, setLastSubmission] = useState(null);
 
-  // Old-age pension state
+  // ---------------- OLD-AGE PENSION STATE ----------------
   const [oldAge, setOldAge] = useState({
+    employer_name: '',
+    employment_type: '',
+    employee_number: '',
     bank_name: '',
     account_number: '',
     branch_code: '',
@@ -93,13 +107,16 @@ const PensionsModule = () => {
   });
   const [oldAgeTouched, setOldAgeTouched] = useState(false);
 
-  // Disability grant state
+  // ---------------- DISABILITY STATE ----------------
   const [disability, setDisability] = useState({
     disability_type: '',
     disability_description: '',
     doctor_name: '',
     clinic_name: '',
     diagnosis_date: '',
+    employer_name: '',
+    employment_type: '',
+    employee_number: '',
     bank_name: '',
     account_number: '',
     branch_code: '',
@@ -159,6 +176,15 @@ const PensionsModule = () => {
         service_type: serviceType,
         application_data: data,
       });
+
+      if (data.employment && (data.employment.employer_name || data.employment.employment_type)) {
+        try {
+          await updateCitizenEmployment(profile.uid, data.employment);
+        } catch (e) {
+          console.warn('Could not save employment to citizen record:', e);
+        }
+      }
+
       setMessage(`✓ Submitted: ${r.reference}`);
       setLastSubmission({
         reference: r.reference,
@@ -177,22 +203,40 @@ const PensionsModule = () => {
 
   const handleOldAgeSubmit = async (e) => {
     e.preventDefault();
-    if (!oldAgeEligibility.eligible) return setMessage('✗ You are not yet eligible for Old Age Pension.');
+    if (!oldAgeEligibility.eligible)
+      return setMessage('✗ You are not yet eligible for Old Age Pension.');
+    if (oldAge.employment_type === 'Government')
+      return setMessage('✗ Government employees cannot apply for Old Age Pension.');
+    if (!oldAge.employer_name.trim())
+      return setMessage('✗ Please enter where you work (or "Unemployed").');
+    if (!oldAge.employment_type)
+      return setMessage('✗ Please select your employment type.');
     if (!oldAge.bank_name) return setMessage('✗ Please select your bank.');
-    if (!oldAge.account_number.trim()) return setMessage('✗ Please enter your account number.');
-    if (!oldAge.account_holder.trim()) return setMessage('✗ Please enter the account holder name.');
+    if (!oldAge.account_number.trim())
+      return setMessage('✗ Please enter your account number.');
+    if (!oldAge.account_holder.trim())
+      return setMessage('✗ Please enter the account holder name.');
     if (!oldAge.truth_declaration || !oldAge.data_consent)
       return setMessage('✗ Please tick both declaration boxes before submitting.');
     if (oldAge.applying_for === 'other') {
-      if (!oldAge.applicant_name.trim() || !oldAge.applicant_id.trim() || !oldAge.applicant_relationship.trim())
+      if (
+        !oldAge.applicant_name.trim() ||
+        !oldAge.applicant_id.trim() ||
+        !oldAge.applicant_relationship.trim()
+      )
         return setMessage('✗ Please complete the applicant (on behalf) details.');
     }
     if (oldAge.chief_confirmed && !oldAge.chief_name.trim())
-      return setMessage('✗ Please enter the Chief\'s name if you ticked the Chief confirmation box.');
+      return setMessage("✗ Please enter the Chief's name if you ticked the Chief confirmation box.");
 
     await submit('Old Age Pension', {
       scheme: 'Old Age Pension',
       age_at_application: age,
+      employment: {
+        employer_name: oldAge.employer_name,
+        employment_type: oldAge.employment_type,
+        employee_number: oldAge.employee_number,
+      },
       payment: {
         bank_name: oldAge.bank_name,
         account_number: oldAge.account_number,
@@ -201,16 +245,20 @@ const PensionsModule = () => {
         account_type: oldAge.account_type,
       },
       chief_confirmation: oldAge.chief_confirmed
-        ? { chief_name: oldAge.chief_name, confirmation_number: oldAge.chief_confirmation_number }
-        : null,
-      applying_for: oldAge.applying_for,
-      on_behalf_of: oldAge.applying_for === 'other'
         ? {
-            full_name: oldAge.applicant_name,
-            national_id: oldAge.applicant_id,
-            relationship: oldAge.applicant_relationship,
+            chief_name: oldAge.chief_name,
+            confirmation_number: oldAge.chief_confirmation_number,
           }
         : null,
+      applying_for: oldAge.applying_for,
+      on_behalf_of:
+        oldAge.applying_for === 'other'
+          ? {
+              full_name: oldAge.applicant_name,
+              national_id: oldAge.applicant_id,
+              relationship: oldAge.applicant_relationship,
+            }
+          : null,
       declarations: {
         truth: oldAge.truth_declaration,
         data_consent: oldAge.data_consent,
@@ -221,11 +269,19 @@ const PensionsModule = () => {
 
   const handleDisabilitySubmit = async (e) => {
     e.preventDefault();
-    if (!disability.disability_type) return setMessage('✗ Please select a disability type.');
+    if (!disability.disability_type)
+      return setMessage('✗ Please select a disability type.');
+    if (!disability.employer_name.trim())
+      return setMessage('✗ Please enter where you work (or "Unemployed").');
+    if (!disability.employment_type)
+      return setMessage('✗ Please select your employment type.');
     if (!disability.bank_name) return setMessage('✗ Please select your bank.');
-    if (!disability.account_number.trim()) return setMessage('✗ Please enter your account number.');
-    if (!disability.account_holder.trim()) return setMessage('✗ Please enter the account holder name.');
-    if (!disability.has_medical_report) return setMessage('✗ Please confirm you have a supporting medical report.');
+    if (!disability.account_number.trim())
+      return setMessage('✗ Please enter your account number.');
+    if (!disability.account_holder.trim())
+      return setMessage('✗ Please enter the account holder name.');
+    if (!disability.has_medical_report)
+      return setMessage('✗ Please confirm you have a supporting medical report.');
     if (!disability.truth_declaration || !disability.data_consent)
       return setMessage('✗ Please tick both declaration boxes before submitting.');
 
@@ -240,6 +296,11 @@ const PensionsModule = () => {
         clinic_name: disability.clinic_name,
         diagnosis_date: disability.diagnosis_date,
         has_medical_report: disability.has_medical_report,
+      },
+      employment: {
+        employer_name: disability.employer_name,
+        employment_type: disability.employment_type,
+        employee_number: disability.employee_number,
       },
       payment: {
         bank_name: disability.bank_name,
@@ -308,9 +369,7 @@ const PensionsModule = () => {
                 <h3 style={{ color: '#006600', marginTop: 0, marginBottom: 8 }}>
                   Application received
                 </h3>
-                <p style={{ color: '#666', margin: '0 0 10px 0' }}>
-                  Reference number:
-                </p>
+                <p style={{ color: '#666', margin: '0 0 10px 0' }}>Reference number:</p>
                 <div style={{
                   display: 'inline-block',
                   background: '#f0f6ff',
@@ -437,6 +496,9 @@ const PensionsModule = () => {
 const OldAgePensionForm = ({ form, setForm, profile, age, eligibility, submitting, onSubmit }) => {
   const update = (key, value) => setForm({ ...form, [key]: value });
 
+  // 🌟 AUTO-FILL every field from profile
+  useAutoFill(profile, form, setForm);
+
   const handleBankChange = (bankName) => {
     const bank = BANK_OPTIONS.find((b) => b.value === bankName);
     setForm({ ...form, bank_name: bankName, branch_code: bank?.branch || '' });
@@ -444,8 +506,14 @@ const OldAgePensionForm = ({ form, setForm, profile, age, eligibility, submittin
 
   const eligible = eligibility?.eligible;
 
+  // 🚫 Government employees are excluded from Old Age Pension
+  const isGovernmentEmployee = form.employment_type === 'Government';
+
   const canSubmit =
     eligible &&
+    !isGovernmentEmployee &&
+    form.employer_name?.trim() &&
+    form.employment_type &&
     form.bank_name &&
     form.account_number.trim() &&
     form.account_holder.trim() &&
@@ -462,7 +530,63 @@ const OldAgePensionForm = ({ form, setForm, profile, age, eligibility, submittin
         Lesotho Old Age Pension is available to citizens aged <strong>65 years and above</strong>.
       </Alert>
 
+      {/* ⛔ GOVERNMENT EMPLOYEE BLOCK */}
+      {isGovernmentEmployee && (
+        <div style={{
+          background: 'linear-gradient(135deg, #8b0000 0%, #cc0000 100%)',
+          color: 'white',
+          borderRadius: 12,
+          padding: 24,
+          marginBottom: 20,
+          boxShadow: '0 8px 24px rgba(204, 0, 0, 0.25)',
+        }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>⛔</div>
+          <h2 style={{ margin: '0 0 10px 0', fontSize: 20, color: 'white' }}>
+            You cannot apply for Old Age Pension
+          </h2>
+          <p style={{ margin: '0 0 16px 0', fontSize: 14, opacity: 0.95, lineHeight: 1.6 }}>
+            As a <strong>Government employee</strong>, you already receive a
+            civil-service pension funded by the taxpayer. Old Age Pension is
+            reserved for citizens <strong>not</strong> on the government payroll.
+          </p>
+          <p style={{ margin: '0 0 16px 0', fontSize: 13, opacity: 0.9, lineHeight: 1.6 }}>
+            Once you retire, change your <em>Employment type</em> to
+            <strong> "Retired"</strong> and you can re-apply.
+          </p>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <a href="/pension/fund" style={{
+              background: 'white',
+              color: '#8b0000',
+              padding: '10px 20px',
+              borderRadius: 999,
+              textDecoration: 'none',
+              fontWeight: 'bold',
+              fontSize: 13,
+            }}>
+              Go to Pension Fund →
+            </a>
+            <button
+              type="button"
+              onClick={() => update('employment_type', '')}
+              style={{
+                background: 'rgba(255,255,255,0.15)',
+                color: 'white',
+                border: '1px solid rgba(255,255,255,0.4)',
+                padding: '10px 20px',
+                borderRadius: 999,
+                fontWeight: 'bold',
+                fontSize: 13,
+                cursor: 'pointer',
+              }}
+            >
+              I selected this by mistake
+            </button>
+          </div>
+        </div>
+      )}
+
       <form onSubmit={onSubmit}>
+        {/* ---------- 1. APPLICANT ---------- */}
         <div className="module-section">
           <div className="module-section-title">1 · Applicant</div>
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
@@ -472,9 +596,17 @@ const OldAgePensionForm = ({ form, setForm, profile, age, eligibility, submittin
               color: 'white',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 24, fontWeight: 'bold', flexShrink: 0,
-              letterSpacing: 1,
+              letterSpacing: 1, overflow: 'hidden',
             }}>
-              {(profile?.full_name || '?').charAt(0).toUpperCase()}
+              {profile?.photo_url ? (
+                <img
+                  src={profile.photo_url}
+                  alt={profile?.full_name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                (profile?.full_name || '?').charAt(0).toUpperCase()
+              )}
             </div>
             <div style={{ flex: 1, minWidth: 240 }}>
               <div style={{ fontSize: 16, fontWeight: 'bold', color: '#003366' }}>
@@ -555,8 +687,39 @@ const OldAgePensionForm = ({ form, setForm, profile, age, eligibility, submittin
           )}
         </div>
 
+        {/* ---------- 2. EMPLOYMENT ---------- */}
         <div className="module-section">
-          <div className="module-section-title">2 · Payout account</div>
+          <div className="module-section-title">2 · Employment</div>
+          <p style={{ fontSize: 13, color: '#666', marginTop: 0, marginBottom: 12 }}>
+            This helps us ensure you are not receiving duplicate payments from
+            Finance and Pensions.
+          </p>
+          <FormField
+            label="Where do you work? *"
+            value={form.employer_name}
+            onChange={(v) => update('employer_name', v)}
+            placeholder="e.g. Ministry of Education, Self-employed, Unemployed"
+            required
+          />
+          <FormField
+            label="Employment type *"
+            as="select"
+            value={form.employment_type}
+            onChange={(v) => update('employment_type', v)}
+            options={EMPLOYMENT_TYPES}
+            required
+          />
+          <FormField
+            label="Employee / Payroll number (if any)"
+            value={form.employee_number}
+            onChange={(v) => update('employee_number', v)}
+            placeholder="e.g. MoF-2019-04521"
+          />
+        </div>
+
+        {/* ---------- 3. PAYOUT ACCOUNT ---------- */}
+        <div className="module-section">
+          <div className="module-section-title">3 · Payout account</div>
           <PayoutInfoBanner />
           <FormField
             label="Bank / Mobile Money"
@@ -591,7 +754,6 @@ const OldAgePensionForm = ({ form, setForm, profile, age, eligibility, submittin
             onChange={(v) => update('account_type', v)}
             options={ACCOUNT_TYPE_OPTIONS}
           />
-
           <PayoutSummary
             bankName={form.bank_name}
             accountHolder={form.account_holder}
@@ -600,8 +762,9 @@ const OldAgePensionForm = ({ form, setForm, profile, age, eligibility, submittin
           />
         </div>
 
+        {/* ---------- 4. CHIEF ---------- */}
         <div className="module-section">
-          <div className="module-section-title">3 · Chief's confirmation (where applicable)</div>
+          <div className="module-section-title">4 · Chief's confirmation (where applicable)</div>
           <Checkbox
             checked={form.chief_confirmed}
             onChange={(v) => update('chief_confirmed', v)}
@@ -624,8 +787,9 @@ const OldAgePensionForm = ({ form, setForm, profile, age, eligibility, submittin
           )}
         </div>
 
+        {/* ---------- 5. DECLARATIONS ---------- */}
         <div className="module-section" style={{ borderBottom: 'none', paddingBottom: 0 }}>
-          <div className="module-section-title">4 · Declarations</div>
+          <div className="module-section-title">5 · Declarations</div>
           <Checkbox
             checked={form.truth_declaration}
             onChange={(v) => update('truth_declaration', v)}
@@ -638,7 +802,11 @@ const OldAgePensionForm = ({ form, setForm, profile, age, eligibility, submittin
           />
         </div>
 
-        <SubmitButton canSubmit={canSubmit} submitting={submitting} label="Submit Application" />
+        <SubmitButton
+          canSubmit={canSubmit}
+          submitting={submitting}
+          label={isGovernmentEmployee ? 'Not eligible as Government employee' : 'Submit Application'}
+        />
       </form>
     </div>
   );
@@ -650,6 +818,9 @@ const OldAgePensionForm = ({ form, setForm, profile, age, eligibility, submittin
 const DisabilityGrantForm = ({ form, setForm, profile, submitting, onSubmit }) => {
   const update = (key, value) => setForm({ ...form, [key]: value });
 
+  // 🌟 AUTO-FILL every field from profile
+  useAutoFill(profile, form, setForm);
+
   const handleBankChange = (bankName) => {
     const bank = BANK_OPTIONS.find((b) => b.value === bankName);
     setForm({ ...form, bank_name: bankName, branch_code: bank?.branch || '' });
@@ -657,6 +828,8 @@ const DisabilityGrantForm = ({ form, setForm, profile, submitting, onSubmit }) =
 
   const canSubmit =
     form.disability_type &&
+    form.employer_name?.trim() &&
+    form.employment_type &&
     form.bank_name &&
     form.account_number.trim() &&
     form.account_holder.trim() &&
@@ -674,16 +847,40 @@ const DisabilityGrantForm = ({ form, setForm, profile, submitting, onSubmit }) =
       </Alert>
 
       <form onSubmit={onSubmit}>
+        {/* ---------- 1. APPLICANT ---------- */}
         <div className="module-section">
           <div className="module-section-title">1 · Applicant</div>
-          <div style={{ fontSize: 16, fontWeight: 'bold', color: '#003366' }}>
-            {profile?.full_name}
-          </div>
-          <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>
-            National ID: {profile?.national_id}
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            <div style={{
+              width: 60, height: 60, borderRadius: '50%',
+              background: 'linear-gradient(135deg, #003366 0%, #0055aa 100%)',
+              color: 'white',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 24, fontWeight: 'bold', flexShrink: 0,
+              overflow: 'hidden',
+            }}>
+              {profile?.photo_url ? (
+                <img
+                  src={profile.photo_url}
+                  alt={profile?.full_name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                (profile?.full_name || '?').charAt(0).toUpperCase()
+              )}
+            </div>
+            <div style={{ flex: 1, minWidth: 240 }}>
+              <div style={{ fontSize: 16, fontWeight: 'bold', color: '#003366' }}>
+                {profile?.full_name}
+              </div>
+              <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>
+                National ID: {profile?.national_id}
+              </div>
+            </div>
           </div>
         </div>
 
+        {/* ---------- 2. DISABILITY ---------- */}
         <div className="module-section">
           <div className="module-section-title">2 · Disability details</div>
           <FormField
@@ -721,8 +918,39 @@ const DisabilityGrantForm = ({ form, setForm, profile, submitting, onSubmit }) =
           />
         </div>
 
+        {/* ---------- 3. EMPLOYMENT ---------- */}
         <div className="module-section">
-          <div className="module-section-title">3 · Payout account</div>
+          <div className="module-section-title">3 · Employment</div>
+          <p style={{ fontSize: 13, color: '#666', marginTop: 0, marginBottom: 12 }}>
+            This helps us ensure you are not receiving duplicate payments from
+            Finance and Pensions.
+          </p>
+          <FormField
+            label="Where do you work? *"
+            value={form.employer_name}
+            onChange={(v) => update('employer_name', v)}
+            placeholder="e.g. Ministry of Education, Self-employed, Unemployed"
+            required
+          />
+          <FormField
+            label="Employment type *"
+            as="select"
+            value={form.employment_type}
+            onChange={(v) => update('employment_type', v)}
+            options={EMPLOYMENT_TYPES}
+            required
+          />
+          <FormField
+            label="Employee / Payroll number (if any)"
+            value={form.employee_number}
+            onChange={(v) => update('employee_number', v)}
+            placeholder="e.g. MoF-2019-04521"
+          />
+        </div>
+
+        {/* ---------- 4. PAYOUT ACCOUNT ---------- */}
+        <div className="module-section">
+          <div className="module-section-title">4 · Payout account</div>
           <PayoutInfoBanner />
           <FormField
             label="Bank / Mobile Money"
@@ -757,7 +985,6 @@ const DisabilityGrantForm = ({ form, setForm, profile, submitting, onSubmit }) =
             onChange={(v) => update('account_type', v)}
             options={ACCOUNT_TYPE_OPTIONS}
           />
-
           <PayoutSummary
             bankName={form.bank_name}
             accountHolder={form.account_holder}
@@ -766,8 +993,9 @@ const DisabilityGrantForm = ({ form, setForm, profile, submitting, onSubmit }) =
           />
         </div>
 
+        {/* ---------- 5. DECLARATIONS ---------- */}
         <div className="module-section" style={{ borderBottom: 'none', paddingBottom: 0 }}>
-          <div className="module-section-title">4 · Declarations</div>
+          <div className="module-section-title">5 · Declarations</div>
           <Checkbox
             checked={form.has_medical_report}
             onChange={(v) => update('has_medical_report', v)}
@@ -792,7 +1020,7 @@ const DisabilityGrantForm = ({ form, setForm, profile, submitting, onSubmit }) =
 };
 
 // ============================================================
-// SHARED PIECES (payout — pension-specific, NOT PaymentBlock)
+// SHARED PIECES (payout UI — pension-specific)
 // ============================================================
 const PayoutInfoBanner = () => (
   <div style={{
@@ -833,9 +1061,7 @@ const PayoutSummary = ({ bankName, accountHolder, accountNumber, accountType }) 
       <SummaryRow label="Bank / Service" value={bankName || '—'} />
       <SummaryRow label="Account Holder" value={accountHolder || '—'} />
       <SummaryRow label="Account Number" value={accountNumber || '—'} mono />
-      {!isMobile && (
-        <SummaryRow label="Account Type" value={accountType || '—'} />
-      )}
+      {!isMobile && <SummaryRow label="Account Type" value={accountType || '—'} />}
       {isMobile && (
         <div style={{ marginTop: 10, fontSize: 12, color: '#7a5a00' }}>
           Mobile money payouts will be sent to the number above. Please make sure

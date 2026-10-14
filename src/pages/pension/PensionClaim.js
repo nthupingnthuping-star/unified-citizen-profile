@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { submitPensionClaim, saveCitizenMasterData, CLAIM_TYPES } from '../../firebase/db';
 import { useAuth } from '../../contexts/AuthContext';
-import { useAutoFill } from '../../hooks/useAutoFill';
+import useAutoFill from '../../hooks/useAutoFill';
 import Layout from '../../components/common/Layout';
 import Card from '../../components/common/Card';
 import Alert from '../../components/common/Alert';
@@ -17,37 +17,50 @@ const CLAIM_OPTIONS = [
 
 const PensionClaim = () => {
   const { user, profile } = useAuth();
-  const { prefill, isFromProfile, loading: masterLoading } = useAutoFill();
 
   const [claimType, setClaimType] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [successRef, setSuccessRef] = useState('');
+  const [prefilled, setPrefilled] = useState(false);
 
-  const [bankAccount, setBankAccount] = useState('');
-  const [employerName, setEmployerName] = useState('');
-  const [notes, setNotes] = useState('');
+  // One combined form object so useAutoFill can populate it
+  const [form, setForm] = useState({
+    bank_account: '',
+    employer_name: '',
+    notes: '',
+  });
+
   const [medicalReport, setMedicalReport] = useState(false);
   const [deathCertificate, setDeathCertificate] = useState(false);
   const [proofOfRelationship, setProofOfRelationship] = useState(false);
-  const [prefilled, setPrefilled] = useState(false);
 
+  // 🌟 Auto-fill from the citizen's profile — runs once on mount
+  useAutoFill(profile, form, setForm);
+
+  // Mark as prefilled for the "✓ from profile" badge
   useEffect(() => {
-    if (!masterLoading && !prefilled) {
-      const filled = prefill({ bank_account: '', employer_name: '' });
-      setBankAccount(filled.bank_account || '');
-      setEmployerName(filled.employer_name || '');
-      setPrefilled(true);
+    if (profile && !prefilled) {
+      const t = setTimeout(() => setPrefilled(true), 50);
+      return () => clearTimeout(t);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [masterLoading, prefilled]);
+  }, [profile, prefilled]);
+
+  const isFromProfile = (key) => {
+    if (!prefilled || !profile) return false;
+    const profileValue =
+      key === 'bank_account' ? profile.bank_account?.account_number || profile.bank_account
+      : key === 'employer_name' ? profile.employment?.employer_name || profile.employer_name
+      : undefined;
+    return Boolean(profileValue);
+  };
 
   const employerRequired = claimType === CLAIM_TYPES.RETIREMENT || claimType === CLAIM_TYPES.WITHDRAWAL;
 
   const canSubmit =
     claimType &&
-    bankAccount.trim() &&
-    (!employerRequired || employerName.trim()) &&
+    form.bank_account.trim() &&
+    (!employerRequired || form.employer_name.trim()) &&
     (claimType !== CLAIM_TYPES.ILL_HEALTH || medicalReport) &&
     (claimType !== CLAIM_TYPES.DEATH || (deathCertificate && proofOfRelationship));
 
@@ -56,8 +69,8 @@ const PensionClaim = () => {
     setError('');
 
     if (!claimType) return setError('Please select a claim type.');
-    if (!bankAccount.trim()) return setError('Please enter your bank account number.');
-    if (employerRequired && !employerName.trim()) return setError('Please enter your employer.');
+    if (!form.bank_account.trim()) return setError('Please enter your bank account number.');
+    if (employerRequired && !form.employer_name.trim()) return setError('Please enter your employer.');
     if (claimType === CLAIM_TYPES.ILL_HEALTH && !medicalReport) return setError('Please confirm you have a medical report.');
     if (claimType === CLAIM_TYPES.DEATH && !deathCertificate) return setError('Please confirm you have the death certificate.');
     if (claimType === CLAIM_TYPES.DEATH && !proofOfRelationship) return setError('Please confirm proof of relationship.');
@@ -70,18 +83,18 @@ const PensionClaim = () => {
         national_id: profile.national_id,
         claim_type: claimType,
         documents: {
-          bank_account: bankAccount,
+          bank_account: form.bank_account,
           medical_report: medicalReport,
           death_certificate: deathCertificate,
           proof_of_relationship: proofOfRelationship,
         },
-        additional_details: { notes },
-        employer_name: employerName,
+        additional_details: { notes: form.notes },
+        employer_name: form.employer_name,
       });
 
       await saveCitizenMasterData(user.uid, {
-        bank_account: bankAccount,
-        employer_name: employerName.trim(),
+        bank_account: form.bank_account,
+        employer_name: form.employer_name.trim(),
       });
 
       setSuccessRef(r.reference);
@@ -98,19 +111,10 @@ const PensionClaim = () => {
       <Layout title="Claim Submitted">
         <Card>
           <div style={{ textAlign: 'center', padding: 30 }}>
-            <div style={{
-              width: 60, height: 60, borderRadius: '50%',
-              background: '#d4edda', color: '#006600',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              margin: '0 auto 20px', fontSize: 36, fontWeight: 'bold',
-            }}>✓</div>
+            <div style={{ width: 60, height: 60, borderRadius: '50%', background: '#d4edda', color: '#006600', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: 36, fontWeight: 'bold' }}>✓</div>
             <h2 style={{ color: '#006600', marginBottom: 8 }}>Claim Submitted Successfully</h2>
             <p style={{ color: '#666' }}>Your reference number is:</p>
-            <p style={{
-              fontSize: 20, fontWeight: 'bold', color: '#003366',
-              background: '#f0f6ff', padding: '12px 20px', borderRadius: 6,
-              display: 'inline-block', marginTop: 4,
-            }}>{successRef}</p>
+            <p style={{ fontSize: 20, fontWeight: 'bold', color: '#003366', background: '#f0f6ff', padding: '12px 20px', borderRadius: 6, display: 'inline-block', marginTop: 4 }}>{successRef}</p>
             <div style={{ marginTop: 24, display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
               <Link to="/pension/status" style={btnPrimary}>Track This Claim</Link>
               <Link to="/pensions" style={btnSecondary}>Back to Pensions</Link>
@@ -153,8 +157,8 @@ const PensionClaim = () => {
 
           <FormField
             label="Bank Account Number"
-            value={bankAccount}
-            onChange={setBankAccount}
+            value={form.bank_account}
+            onChange={(v) => setForm({ ...form, bank_account: v })}
             placeholder="e.g. 0123456789"
             required
             fromProfile={isFromProfile('bank_account')}
@@ -162,8 +166,8 @@ const PensionClaim = () => {
 
           <FormField
             label={`Employer / Department${employerRequired ? '' : ' (optional)'}`}
-            value={employerName}
-            onChange={setEmployerName}
+            value={form.employer_name}
+            onChange={(v) => setForm({ ...form, employer_name: v })}
             placeholder="e.g. Ministry of Education"
             required={employerRequired}
             fromProfile={isFromProfile('employer_name')}
@@ -182,8 +186,8 @@ const PensionClaim = () => {
           <FormField
             label="Additional Notes (optional)"
             as="textarea"
-            value={notes}
-            onChange={setNotes}
+            value={form.notes}
+            onChange={(v) => setForm({ ...form, notes: v })}
             placeholder="Anything else you want the Pensions Department to know..."
           />
 
@@ -213,13 +217,7 @@ const Checkbox = ({ checked, onChange, label }) => (
   </div>
 );
 
-const btnPrimary = {
-  background: '#003366', color: 'white', padding: '10px 18px',
-  borderRadius: 6, textDecoration: 'none', fontSize: 14, fontWeight: 'bold',
-};
-const btnSecondary = {
-  background: 'white', color: '#003366', border: '1px solid #003366',
-  padding: '10px 18px', borderRadius: 6, textDecoration: 'none', fontSize: 14,
-};
+const btnPrimary = { background: '#003366', color: 'white', padding: '10px 18px', borderRadius: 6, textDecoration: 'none', fontSize: 14, fontWeight: 'bold' };
+const btnSecondary = { background: 'white', color: '#003366', border: '1px solid #003366', padding: '10px 18px', borderRadius: 6, textDecoration: 'none', fontSize: 14 };
 
 export default PensionClaim;

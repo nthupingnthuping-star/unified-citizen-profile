@@ -235,6 +235,19 @@ export async function submitApplication({
     }
   }
 
+  // ============================================================
+// OLD AGE PENSION — block government employees
+// ============================================================
+if (service_type === 'Old Age Pension') {
+  const empType = application_data?.employment?.employment_type;
+  if (empType === 'Government') {
+    throw new Error(
+      'You cannot apply for Old Age Pension while employed by the Government. ' +
+      'Civil-service employees receive a state pension instead.'
+    );
+  }
+}
+
   const year = new Date().getFullYear();
   const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
   const prefix = {
@@ -983,23 +996,26 @@ export async function getApplicationByReference(reference) {
   return { id: docData.id, ...docData.data() };
 }
 
+/**
+ * Returns the public verification URL that a QR code on a certificate
+ * should encode.
+ *
+ * IMPORTANT: This MUST always return the production URL. Certificates
+ * are printed / shown to third parties and scanned from any phone or
+ * country — they must never encode localhost or a LAN IP.
+ *
+ * If you want to test the verify page locally during development,
+ * set REACT_APP_PUBLIC_VERIFY_URL in a local .env file — but NEVER
+ * commit that override.
+ */
 export function getCertificateVerifyUrl(reference) {
-  let baseUrl;
-  if (typeof window !== 'undefined') {
-    const origin = window.location.origin;
-    const networkIp = process.env.REACT_APP_NETWORK_IP;
-    const port = window.location.port || '3000';
-    if (networkIp && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
-      baseUrl = `http://${networkIp}:${port}`;
-    } else {
-      baseUrl = origin;
-    }
-  } else {
-    baseUrl = 'https://unified-citizen-profile.web.app';
-  }
+  // Always use production URL — certificates must be verifiable from
+  // any phone, anywhere. Never encode localhost or LAN IPs into a QR.
+  const baseUrl =
+    process.env.REACT_APP_PUBLIC_VERIFY_URL ||
+    'https://unified-citizen-profile.web.app';
   return `${baseUrl}/verify/${reference}`;
 }
-
 export function isCertificateValid(application) {
   if (!application) return false;
   if (application.status !== 'approved' && application.status !== 'completed') return false;
@@ -1587,4 +1603,162 @@ export async function saveCitizenDocument(uid, { document_url, document_type }) 
     id_document_type: document_type || 'Other',
     id_document_updated_at: serverTimestamp(),
   });
+}
+// ============================================================
+// DECEASED CITIZEN
+// ============================================================
+
+/**
+ * Mark a citizen as deceased.
+ * Called by Home Affairs staff when approving a Death Certificate.
+ * This immediately blocks the citizen from every department.
+ */
+export async function markCitizenDeceased(citizenId, certificateReference, staffId = null) {
+  if (!citizenId) throw new Error('citizenId is required');
+
+  await updateDoc(doc(db, 'citizens', citizenId), {
+    deceased: true,
+    deceased_confirmed_at: serverTimestamp(),
+    deceased_certificate_reference: certificateReference || null,
+    deceased_marked_by: staffId || null,
+    id_status: 'deceased',
+    id_blocked: true,
+    updated_at: serverTimestamp(),
+  });
+
+  await createNotification(citizenId, {
+    title: '🕯️ Account marked as deceased',
+    message:
+      'Your account has been marked as deceased by Home Affairs. All government services are now closed. If this is an error, please visit your nearest Home Affairs office.',
+    type: 'error',
+  });
+}
+
+/**
+ * Undo a deceased flag (admin error correction).
+ * Should only be used by senior Home Affairs staff.
+ */
+export async function unmarkCitizenDeceased(citizenId, staffId = null, reason = '') {
+  if (!citizenId) throw new Error('citizenId is required');
+
+  await updateDoc(doc(db, 'citizens', citizenId), {
+    deceased: false,
+    deceased_corrected_at: serverTimestamp(),
+    deceased_correction_reason: reason,
+    deceased_corrected_by: staffId,
+    id_status: 'active',
+    id_blocked: false,
+    updated_at: serverTimestamp(),
+  });
+
+  await createNotification(citizenId, {
+    title: '✓ Account reactivated',
+    message:
+      'Your account has been reactivated. You can now access government services again.',
+    type: 'success',
+  });
+}
+
+// ============================================================
+// EMPLOYMENT CROSS-CHECK (Finance ↔ Pensions)
+// ============================================================
+
+/**
+ * Store employment information on the citizen record.
+ * Called by Pensions and Finance forms.
+ */
+export async function updateCitizenEmployment(citizenId, employment) {
+  if (!citizenId) throw new Error('citizenId is required');
+  if (!employment) return;
+
+  await updateDoc(doc(db, 'citizens', citizenId), {
+    employment: {
+      employer_name: employment.employer_name || '',
+      employment_type: employment.employment_type || '',
+      employee_number: employment.employee_number || '',
+      updated_at: new Date().toISOString(),
+    },
+    updated_at: serverTimestamp(),
+  });
+}
+
+/**
+ * Check whether a citizen is already receiving government wages.
+ * Used to prevent double payouts (Finance salary + Pensions grant).
+ *
+ * Returns { isGovernmentEmployee, source, employer_name }
+ */
+export async function checkDuplicatePayout(citizenId) {
+  if (!citizenId) return { isGovernmentEmployee: false };
+
+  const citizenSnap = await getDoc(doc(db, 'citizens', citizenId));
+  if (!citizenSnap.exists()) return { isGovernmentEmployee: false };
+
+  const citizen = citizenSnap.data();
+  const emp = citizen.employment || {};
+
+  const isGov =
+    emp.employment_type === 'Government' ||
+    citizen.is_government_employee === true;
+
+  return {
+    isGovernmentEmployee: isGov,
+    source: isGov ? (emp.employer_name || 'Government of Lesotho') : null,
+    employer_name: emp.employer_name || '',
+    employee_number: emp.employee_number || '',
+    employment_type: emp.employment_type || '',
+  };
+}
+
+// ============================================================
+// AUTO-TRIGGER: DEATH CERTIFICATE APPROVAL
+// Wraps updateApplicationStatus so that when a Death Certificate
+// is approved, the citizen is automatically flagged as deceased.
+// ============================================================
+const _originalUpdateApplicationStatus = updateApplicationStatus;
+
+export async function updateApplicationStatusWithDeceasedCheck(
+  applicationId,
+  action,
+  staffId,
+  reason = ''
+) {
+  // Fetch the application first
+  const appSnap = await getDoc(doc(db, 'applications', applicationId));
+  const app = appSnap.exists() ? appSnap.data() : null;
+
+  // Run the normal status update
+  await _originalUpdateApplicationStatus(applicationId, action, staffId, reason);
+
+  // If this was a Death Certificate approval, mark the citizen deceased
+  if (
+    app &&
+    action === 'approve' &&
+    app.service_type === 'Death Certificate' &&
+    app.citizen_id
+  ) {
+    await markCitizenDeceased(
+      app.citizen_id,
+      app.application_reference,
+      staffId
+    );
+  }
+
+  // If this was a Death Certificate rejection but citizen was marked,
+  // reverse the deceased flag (safety net)
+  if (
+    app &&
+    action === 'reject' &&
+    app.service_type === 'Death Certificate' &&
+    app.citizen_id
+  ) {
+    const citizenSnap = await getDoc(doc(db, 'citizens', app.citizen_id));
+    if (citizenSnap.exists() && citizenSnap.data().deceased === true) {
+      await unmarkCitizenDeceased(
+        app.citizen_id,
+        staffId,
+        `Death Certificate ${app.application_reference} rejected`
+      );
+    }
+  }
 }

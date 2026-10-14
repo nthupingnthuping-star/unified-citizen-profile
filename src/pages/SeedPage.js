@@ -74,7 +74,7 @@ const SeedPage = () => {
           gender: c.gender,
           residential_address: c.residential_address,
           phone_number: c.phone_number,
-          citizenship_status: 'Citizen',
+          citizenship_status: 'Mosotho',
           verified_by_home_affairs: c.verified_by_home_affairs,
           verification_date: c.verified_by_home_affairs ? serverTimestamp() : null,
           verified_by: null,

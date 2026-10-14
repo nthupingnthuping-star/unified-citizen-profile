@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, Navigate } from 'react-router-dom';
+import { QRCodeCanvas } from 'qrcode.react';
 import {
   getApplicationByReference,
   isCertificateValid,
@@ -11,12 +12,12 @@ import {
 import { useLanguage } from '../../i18n/LanguageContext';
 import LanguageToggleLight from '../common/LanguageToggleLight';
 
-  const SLIP_SERVICES = [
-    'New Passport',
-    'Passport Renewal',
-    'Learner License',
-    "Driver's License",
-  ];
+const SLIP_SERVICES = [
+  'New Passport',
+  'Passport Renewal',
+  'Learner License',
+  "Driver's License",
+];
 
 const CertificateView = () => {
   const { reference } = useParams();
@@ -273,11 +274,12 @@ const CollectionSlip = ({ application }) => {
             handing over the document.
           </div>
         </div>
-        <img
-          src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(verifyUrl)}`}
-          alt="Verify QR"
-          style={{ width: 140, height: 140 }}
-        />
+        <div style={{ textAlign: 'center' }}>
+          <QRCodeCanvas value={verifyUrl} size={140} level="M" includeMargin={false} />
+          <div style={{ fontSize: 10, color: '#888', marginTop: 6 }}>
+            Scan to verify
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -402,12 +404,8 @@ const Certificate = ({ application, expiry }) => {
             visiting the verification page and entering the reference number above.
           </div>
           <div style={{ textAlign: 'center' }}>
-            <img
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(verifyUrl)}`}
-              alt="Verify QR"
-              style={{ width: 120, height: 120 }}
-            />
-            <div style={{ fontSize: 10, color: '#888', marginTop: 4 }}>
+            <QRCodeCanvas value={verifyUrl} size={120} level="M" includeMargin={false} />
+            <div style={{ fontSize: 10, color: '#888', marginTop: 6 }}>
               Scan to verify
             </div>
           </div>

@@ -38,7 +38,7 @@ export async function registerCitizen({
     gender,
     residential_address: residential_address || '',
     phone_number: phone_number || '',
-    citizenship_status: 'Citizen',
+    citizenship_status: 'Mosotho',
     verified_by_home_affairs: false,
     verification_date: null,
     verified_by: null,

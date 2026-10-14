@@ -1,46 +1,34 @@
-import { useEffect, useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { getCitizenMasterData } from '../firebase/db';
+import { useEffect, useRef } from 'react';
+import { fillFormFromCitizen } from '../utils/autofillMap';
 
-export function useAutoFill() {
-  const { user } = useAuth();
-  const [master, setMaster] = useState(null);
-  const [loading, setLoading] = useState(true);
+/**
+ * Auto-fill a form from the logged-in citizen's profile.
+ *
+ * Usage:
+ *   const [form, setForm] = useState({ ... });
+ *   useAutoFill(profile, form, setForm);
+ *
+ * Options:
+ *   useAutoFill(profile, form, setForm, { overwrite: false });
+ *
+ * Behaviour:
+ *   - Runs ONCE per component mount
+ *   - Fills only fields that exist in the current form (keys in `form`)
+ *   - Only overwrites existing values if `overwrite: true`
+ *   - Never runs when `profile` is null/undefined
+ */
+export function useAutoFill(profile, form, setForm, opts = {}) {
+  const didRun = useRef(false);
 
   useEffect(() => {
-    const load = async () => {
-      if (!user?.uid) {
-        setLoading(false);
-        return;
-      }
-      try {
-        const data = await getCitizenMasterData(user.uid);
-        setMaster(data);
-      } catch (err) {
-        console.error('Failed to load master data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [user]);
+    if (!profile) return;
+    if (didRun.current) return;
 
-  const prefill = (defaults) => {
-    if (!master) return defaults;
-    const merged = { ...defaults };
-    Object.keys(defaults).forEach((key) => {
-      if (master[key] !== undefined && master[key] !== null && master[key] !== '') {
-        merged[key] = master[key];
-      }
-    });
-    return merged;
-  };
+    setForm((prev) => fillFormFromCitizen(prev, profile, opts));
+    didRun.current = true;
 
-  const isFromProfile = (field) => {
-    if (!master) return false;
-    const v = master[field];
-    return v !== undefined && v !== null && v !== '';
-  };
-
-  return { master, loading, prefill, isFromProfile };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile]);
 }
+
+export default useAutoFill;

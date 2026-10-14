@@ -7,7 +7,7 @@ import {
   RETIREMENT_AGES,
 } from '../../firebase/db';
 import { useAuth } from '../../contexts/AuthContext';
-import { useAutoFill } from '../../hooks/useAutoFill';
+import useAutoFill from '../../hooks/useAutoFill';
 import Layout from '../../components/common/Layout';
 import Card from '../../components/common/Card';
 import Alert from '../../components/common/Alert';
@@ -21,7 +21,6 @@ const BRANCH_OPTIONS = BRANCHES.map((b) => ({
 
 const PensionFundProfile = () => {
   const { user, profile } = useAuth();
-  const { prefill, isFromProfile, loading: masterLoading } = useAutoFill();
 
   const [record, setRecord] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -29,6 +28,7 @@ const PensionFundProfile = () => {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [prefilled, setPrefilled] = useState(false);
 
   const [form, setForm] = useState({
     employment_branch: 'Public Service',
@@ -39,7 +39,18 @@ const PensionFundProfile = () => {
     total_employer_contributions: '',
     investment_returns: '',
   });
-  const [prefilled, setPrefilled] = useState(false);
+
+  // 🌟 Auto-fill from the citizen's profile — runs once on mount
+  useAutoFill(profile, form, setForm);
+
+  // Mark as "prefilled" once profile data has landed — for the "✓ from profile" badge
+  useEffect(() => {
+    if (profile && !prefilled) {
+      // Give the hook a tick to run first
+      const t = setTimeout(() => setPrefilled(true), 50);
+      return () => clearTimeout(t);
+    }
+  }, [profile, prefilled]);
 
   const load = async () => {
     if (!user?.uid) return;
@@ -56,16 +67,19 @@ const PensionFundProfile = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [user]);
 
-  // Prefill form once master data is available, but only when creating a new record
-  useEffect(() => {
-    if (!masterLoading && !prefilled && !record) {
-      setForm((f) => prefill(f));
-      setPrefilled(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [masterLoading, prefilled, record]);
+  // Only show the "✓ from profile" badge on new records (not when editing an existing one)
+  const isFromProfile = (key) => {
+    if (isEditing || record) return false;
+    if (!prefilled || !profile) return false;
+    const profileValue =
+      key === 'employment_branch' ? profile.employment_branch
+      : key === 'employer_name' ? profile.employment?.employer_name || profile.employer_name
+      : key === 'months_of_service' ? profile.months_of_service
+      : key === 'monthly_contribution' ? profile.monthly_contribution
+      : undefined;
+    return Boolean(profileValue);
+  };
 
-  // When the user clicks Edit, populate the form from the existing record
   const startEditing = () => {
     if (!record) return;
     setForm({
@@ -153,7 +167,7 @@ const PensionFundProfile = () => {
     }
   };
 
-  if (loading || masterLoading) {
+  if (loading) {
     return (
       <Layout title="My Pension Fund Profile">
         <div style={{ padding: 40, textAlign: 'center' }}>Loading...</div>
@@ -186,7 +200,7 @@ const PensionFundProfile = () => {
               onChange={(v) => setForm({ ...form, employment_branch: v })}
               options={BRANCH_OPTIONS}
               required
-              fromProfile={!isEditing && isFromProfile('employment_branch')}
+              fromProfile={isFromProfile('employment_branch')}
             />
 
             <FormField
@@ -195,7 +209,7 @@ const PensionFundProfile = () => {
               onChange={(v) => setForm({ ...form, employer_name: v })}
               placeholder="e.g. Ministry of Education"
               required
-              fromProfile={!isEditing && isFromProfile('employer_name')}
+              fromProfile={isFromProfile('employer_name')}
             />
 
             <FormField
@@ -205,7 +219,7 @@ const PensionFundProfile = () => {
               onChange={(v) => setForm({ ...form, months_of_service: v })}
               placeholder="e.g. 120"
               required
-              fromProfile={!isEditing && isFromProfile('months_of_service')}
+              fromProfile={isFromProfile('months_of_service')}
             />
 
             <FormField
@@ -214,7 +228,7 @@ const PensionFundProfile = () => {
               value={form.monthly_contribution}
               onChange={(v) => setForm({ ...form, monthly_contribution: v })}
               placeholder="e.g. 500"
-              fromProfile={!isEditing && isFromProfile('monthly_contribution')}
+              fromProfile={isFromProfile('monthly_contribution')}
             />
 
             <div style={{ background: '#f0f6ff', padding: 16, borderRadius: 6, marginBottom: 18 }}>
@@ -287,16 +301,10 @@ const PensionFundProfile = () => {
 
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 24 }}>
               <button type="submit" disabled={saving} style={btnPrimary}>
-                {saving
-                  ? 'Saving...'
-                  : isEditing
-                  ? 'Save Changes'
-                  : 'Submit for Verification'}
+                {saving ? 'Saving...' : isEditing ? 'Save Changes' : 'Submit for Verification'}
               </button>
               {isEditing ? (
-                <button type="button" onClick={cancelEditing} style={btnSecondary}>
-                  Cancel
-                </button>
+                <button type="button" onClick={cancelEditing} style={btnSecondary}>Cancel</button>
               ) : (
                 <Link to="/pensions" style={btnSecondary}>Cancel</Link>
               )}
@@ -307,7 +315,7 @@ const PensionFundProfile = () => {
     );
   }
 
-  // ============ READ-ONLY VIEW (with Edit button) ============
+  // ============ READ-ONLY VIEW ============
   return (
     <Layout title="My Pension Fund Profile">
       {message && <Alert type="success" onClose={() => setMessage('')}>{message}</Alert>}
@@ -328,33 +336,21 @@ const PensionFundProfile = () => {
         </div>
 
         <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
-          <button onClick={startEditing} style={btnSecondary}>
-            ✎ Edit Fund Record
-          </button>
+          <button onClick={startEditing} style={btnSecondary}>✎ Edit Fund Record</button>
         </div>
       </Card>
 
       {record.verification_status === 'pending' && (
-        <div style={{ marginTop: 16 }}>
-          <Alert type="warning">Your fund record is awaiting verification.</Alert>
-        </div>
+        <div style={{ marginTop: 16 }}><Alert type="warning">Your fund record is awaiting verification.</Alert></div>
       )}
       {record.verification_status === 'needs_info' && (
-        <div style={{ marginTop: 16 }}>
-          <Alert type="warning">
-            Pensions Department requests more information: {record.verification_notes}
-          </Alert>
-        </div>
+        <div style={{ marginTop: 16 }}><Alert type="warning">Pensions Department requests more information: {record.verification_notes}</Alert></div>
       )}
       {record.verification_status === 'verified' && (
-        <div style={{ marginTop: 16 }}>
-          <Alert type="success">Your fund record is verified.</Alert>
-        </div>
+        <div style={{ marginTop: 16 }}><Alert type="success">Your fund record is verified.</Alert></div>
       )}
       {record.verification_status === 'rejected' && (
-        <div style={{ marginTop: 16 }}>
-          <Alert type="error">Your record was rejected. Reason: {record.verification_notes}</Alert>
-        </div>
+        <div style={{ marginTop: 16 }}><Alert type="error">Your record was rejected. Reason: {record.verification_notes}</Alert></div>
       )}
 
       <div style={{ marginTop: 20 }}>
@@ -384,10 +380,7 @@ const PensionFundProfile = () => {
 };
 
 const Row = ({ label, value, bold }) => (
-  <div style={{
-    display: 'flex', justifyContent: 'space-between',
-    padding: '10px 0', borderBottom: '1px solid #eee', fontSize: 14,
-  }}>
+  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #eee', fontSize: 14 }}>
     <span style={{ color: '#666' }}>{label}</span>
     <span style={{ fontWeight: bold ? 'bold' : 'normal', color: '#003366' }}>{value}</span>
   </div>
@@ -402,26 +395,14 @@ const StatusBadge = ({ status }) => {
   };
   const s = map[status] || map.pending;
   return (
-    <span style={{
-      background: s.bg, color: s.color,
-      padding: '6px 14px', borderRadius: 20,
-      fontSize: 12, fontWeight: 'bold',
-    }}>
+    <span style={{ background: s.bg, color: s.color, padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 'bold' }}>
       {s.label}
     </span>
   );
 };
 
 const mini = { fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 1 };
-const btnPrimary = {
-  background: '#003366', color: 'white', border: 'none',
-  padding: '10px 18px', borderRadius: 6, fontSize: 14,
-  fontWeight: 'bold', cursor: 'pointer', textDecoration: 'none', display: 'inline-block',
-};
-const btnSecondary = {
-  background: 'white', color: '#003366', border: '1px solid #003366',
-  padding: '10px 18px', borderRadius: 6, fontSize: 14,
-  fontWeight: 'bold', cursor: 'pointer', textDecoration: 'none', display: 'inline-block',
-};
+const btnPrimary = { background: '#003366', color: 'white', border: 'none', padding: '10px 18px', borderRadius: 6, fontSize: 14, fontWeight: 'bold', cursor: 'pointer', textDecoration: 'none', display: 'inline-block' };
+const btnSecondary = { background: 'white', color: '#003366', border: '1px solid #003366', padding: '10px 18px', borderRadius: 6, fontSize: 14, fontWeight: 'bold', cursor: 'pointer', textDecoration: 'none', display: 'inline-block' };
 
 export default PensionFundProfile;

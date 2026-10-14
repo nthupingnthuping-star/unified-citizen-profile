@@ -5,6 +5,9 @@ import {
   verifyCitizen,
   getDepartmentApplications,
   updateApplicationStatus,
+  getCitizenByNationalId,
+  markCitizenDeceased,
+  searchCitizens,
   DEPARTMENTS,
 } from '../../firebase/db';
 import StaffLayout from '../common/StaffLayout';
@@ -77,14 +80,77 @@ const StaffHomeAffairs = () => {
     }
   };
 
+  /**
+   * Handle a staff action on a Home Affairs application.
+   * Special case: when approving a Death Certificate, mark the
+   * deceased citizen as deceased so every module blocks them.
+   */
   const handleDocAction = async (appId, action, reason) => {
     try {
+      const app = applications.find((a) => a.id === appId) || selectedApp;
+
+      // ---- DEATH CERTIFICATE AUTO-FLAG ----
+      if (app && app.service_type === 'Death Certificate' && action === 'approve') {
+        const deceased = app.application_data?.deceased || {};
+        const deceasedNatId = deceased.national_id;
+        const deceasedName = deceased.full_name;
+
+        if (deceasedNatId) {
+          try {
+            const citizen = await getCitizenByNationalId(deceasedNatId);
+            if (citizen?.id) {
+              await markCitizenDeceased(
+                citizen.id,
+                app.application_reference,
+                profile.uid
+              );
+            } else {
+              console.warn(
+                `Death Certificate approved but no citizen found with National ID "${deceasedNatId}".`
+              );
+            }
+          } catch (e) {
+            console.error('Failed to mark citizen as deceased:', e);
+          }
+        } else if (deceasedName) {
+          // Fallback: search by name
+          try {
+            const results = await searchCitizens(deceasedName);
+            if (results.length === 1) {
+              await markCitizenDeceased(
+                results[0].id,
+                app.application_reference,
+                profile.uid
+              );
+            } else {
+              console.warn(
+                `Death Certificate approved for "${deceasedName}" but no unique match. Please mark manually.`
+              );
+            }
+          } catch (e) {
+            console.error('Fallback name search failed:', e);
+          }
+        } else {
+          console.warn(
+            `Death Certificate approved without deceased details. Application: ${app.application_reference}`
+          );
+        }
+      }
+
+      // ---- Normal status update ----
       await updateApplicationStatus(appId, action, profile.uid, reason || '');
-      setAppMsg(
-        action === 'request-info'
-          ? 'Application sent back for more information.'
-          : `Application ${action === 'approve' ? 'approved' : 'rejected'}.`
-      );
+
+      // ---- Message ----
+      if (action === 'request-info') {
+        setAppMsg('Application sent back for more information.');
+      } else if (action === 'approve' && app?.service_type === 'Death Certificate') {
+        setAppMsg(
+          '✓ Death Certificate approved. The citizen is now marked as deceased and blocked from all services.'
+        );
+      } else {
+        setAppMsg(`Application ${action === 'approve' ? 'approved' : 'rejected'}.`);
+      }
+
       setSelectedApp(null);
       loadApplications();
     } catch (err) {
@@ -311,6 +377,9 @@ const StaffHomeAffairs = () => {
                             Gender: {c.gender || '—'}
                           </div>
                           <div style={{ fontSize: 13, color: '#666' }}>
+                            Citizenship: {c.citizenship_status || 'Mosotho'}
+                          </div>
+                          <div style={{ fontSize: 13, color: '#666' }}>
                             Submitted: {c.created_at?.toDate?.().toLocaleDateString() || '—'}
                           </div>
                         </div>
@@ -440,10 +509,13 @@ const DocumentReviewModal = ({ application, onClose, onAction }) => {
   const [reason, setReason] = useState('');
   const [showReason, setShowReason] = useState(false);
   const [pendingAction, setPendingAction] = useState('');
+  const [confirmingDeceased, setConfirmingDeceased] = useState(false);
 
   const data = application.application_data || {};
   const uploads = data.documents_uploaded || {};
   const legacyDeclared = data.documents_declared || {};
+  const deceased = data.deceased || {};
+  const isDeathCert = application.service_type === 'Death Certificate';
 
   const askReason = (action) => {
     setPendingAction(action);
@@ -455,11 +527,25 @@ const DocumentReviewModal = ({ application, onClose, onAction }) => {
     onAction(application.id, pendingAction, reason.trim());
   };
 
+  const handleApprove = () => {
+    // For Death Certificate, ask for one extra confirmation
+    if (isDeathCert) {
+      setConfirmingDeceased(true);
+      return;
+    }
+    onAction(application.id, 'approve', 'Approved');
+  };
+
+  const confirmDeceasedApproval = () => {
+    setConfirmingDeceased(false);
+    onAction(application.id, 'approve', 'Death Certificate approved');
+  };
+
   const btnGreen = { background: 'linear-gradient(135deg, #006600 0%, #008800 100%)', color: 'white', border: 'none', padding: '10px 22px', borderRadius: 999, fontSize: 14, fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 14px rgba(0, 102, 0, 0.25)' };
   const btnBlue = { background: 'linear-gradient(135deg, #003366 0%, #0055aa 100%)', color: 'white', border: 'none', padding: '10px 22px', borderRadius: 999, fontSize: 14, fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 14px rgba(0, 51, 102, 0.25)' };
   const btnRed = { background: 'linear-gradient(135deg, #8b0000 0%, #cc0000 100%)', color: 'white', border: 'none', padding: '10px 22px', borderRadius: 999, fontSize: 14, fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 14px rgba(204, 0, 0, 0.25)' };
 
-  const hasUploads = uploads.national_id || uploads.police_report || uploads.supporting;
+  const hasUploads = uploads.national_id || uploads.police_report || uploads.supporting || uploads.death_evidence;
   const hasLegacyDeclared = legacyDeclared.national_id || legacyDeclared.police_report || legacyDeclared.supporting;
 
   return (
@@ -493,6 +579,35 @@ const DocumentReviewModal = ({ application, onClose, onAction }) => {
           <Field label="Fee" value={data.fees?.total ? `M ${data.fees.total}` : 'Free'} />
         </Section>
 
+        {/* Death Certificate specific — deceased details */}
+        {isDeathCert && (
+          <Section title="Deceased Details">
+            <Field label="Full Name" value={deceased.full_name} />
+            <Field label="National ID" value={deceased.national_id || '(not provided)'} />
+            <Field label="Date of Death" value={deceased.date_of_death} />
+            <Field label="Place of Death" value={deceased.place_of_death} />
+            <Field label="Relationship to Applicant" value={deceased.relationship} />
+          </Section>
+        )}
+
+        {isDeathCert && (
+          <div style={{
+            background: '#fff0f0',
+            border: '1px solid #ffcccc',
+            borderRadius: 6,
+            padding: 14,
+            marginBottom: 20,
+            fontSize: 13,
+            color: '#cc0000',
+            lineHeight: 1.6,
+          }}>
+            <strong>⚠ Important:</strong> Approving this Death Certificate will{' '}
+            <strong>immediately mark the deceased citizen as deceased</strong> in the
+            system. They will be blocked from all government services across every
+            department. This action should only be taken with verified documentation.
+          </div>
+        )}
+
         {hasUploads && (
           <Section title="Documents Uploaded by Citizen">
             {uploads.national_id && (
@@ -500,6 +615,9 @@ const DocumentReviewModal = ({ application, onClose, onAction }) => {
             )}
             {uploads.police_report && (
               <DocumentLink label="Police Report" url={uploads.police_report} />
+            )}
+            {uploads.death_evidence && (
+              <DocumentLink label="Medical Certificate of Cause of Death" url={uploads.death_evidence} />
             )}
             {uploads.supporting && (
               <DocumentLink label="Supporting Document" url={uploads.supporting} />
@@ -515,7 +633,39 @@ const DocumentReviewModal = ({ application, onClose, onAction }) => {
           </Section>
         )}
 
-        {showReason ? (
+        {/* ---- Confirm flow for Death Certificate approval ---- */}
+        {confirmingDeceased ? (
+          <div style={{
+            marginTop: 20,
+            background: '#fff0f0',
+            border: '2px solid #cc0000',
+            borderRadius: 8,
+            padding: 20,
+          }}>
+            <div style={{ fontSize: 15, fontWeight: 'bold', color: '#8b0000', marginBottom: 10 }}>
+              Confirm: Mark citizen as deceased?
+            </div>
+            <p style={{ fontSize: 13, color: '#cc0000', marginTop: 0, lineHeight: 1.6 }}>
+              You are about to:
+              <br />1. Approve this Death Certificate
+              <br />2. Mark <strong>{deceased.full_name || 'the citizen'}</strong> as deceased
+              <br />3. Block them from all government services
+              <br /><br />
+              This cannot be undone from this screen.
+            </p>
+            <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+              <button onClick={confirmDeceasedApproval} style={btnRed}>
+                Yes, mark as deceased
+              </button>
+              <button onClick={() => setConfirmingDeceased(false)} style={{
+                background: 'white', color: '#333', border: '1px solid #ccc',
+                padding: '10px 20px', borderRadius: 999, fontSize: 14, cursor: 'pointer',
+              }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : showReason ? (
           <div style={{ marginTop: 20 }}>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 6 }}>
               Reason for "{pendingAction}" *
@@ -546,8 +696,8 @@ const DocumentReviewModal = ({ application, onClose, onAction }) => {
           </div>
         ) : (
           <div style={{ marginTop: 24, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button onClick={() => onAction(application.id, 'approve', 'Approved')} style={btnGreen}>
-              ✓ Approve
+            <button onClick={handleApprove} style={btnGreen}>
+              ✓ Approve{isDeathCert ? ' (mark deceased)' : ''}
             </button>
             <button onClick={() => askReason('request-info')} style={btnBlue}>
               ✉ Request Info

@@ -8,11 +8,13 @@ import {
   DEPARTMENTS,
   DISTRICTS,
 } from '../../firebase/db';
+import useAutoFill from '../../hooks/useAutoFill';
 import Layout from '../common/Layout';
 import Alert from '../common/Alert';
 import Badge from '../common/Badge';
 import Table from '../common/Table';
 import FormField from '../common/FormField';
+import CloudinaryUpload from '../common/CloudinaryUpload';
 import PaymentBlock from '../common/PaymentBlock';
 import VerifiedGuard from '../citizen/VerifiedGuard';
 import '../../styles/module.css';
@@ -80,6 +82,14 @@ const computeReadyDate = (speed) => {
   const d = new Date();
   d.setDate(d.getDate() + days);
   return d;
+};
+
+// Normalise any legacy citizenship value to "Mosotho"
+const getCitizenshipDisplay = (raw) => {
+  const value = (raw || '').toLowerCase();
+  if (value.includes('mosotho') || value.includes('citizen')) return 'Mosotho';
+  if (value.includes('resident')) return 'Permanent resident';
+  return 'Mosotho';
 };
 
 // ============================================================
@@ -236,7 +246,7 @@ const PassportModule = () => {
                 rows={applications.map((a) => [
                   a.application_reference,
                   a.service_type,
-                  <Badge color={statusColor(a.status)}>{t(a.status)}</Badge>,
+                  <Badge color={statusColor(a.status)}>{a.status}</Badge>,
                   a.submitted_at?.toDate?.().toLocaleDateString() || '—',
                   a.status === 'approved' || a.status === 'completed' ? (
                     <Link
@@ -249,7 +259,7 @@ const PassportModule = () => {
                     <span style={{ color: '#999', fontSize: 12 }}>—</span>
                   ),
                 ])}
-                emptyMessage={t('no_applications_yet')}
+                emptyMessage="No applications yet."
               />
             </div>
           )}
@@ -274,37 +284,66 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
   const isRenewal = mode === 'renewal';
 
   const [form, setForm] = useState({
+    // Personal (auto-filled)
+    full_name: '',
+    national_id: '',
+    date_of_birth: '',
+    gender: '',
+    citizenship_status: '',
+    residential_address: '',
+    phone_number: '',
+    email: '',
+
+    // Passport options
     passport_type: 'Ordinary',
     book_format: '32-page',
     processing_speed: 'Standard',
+
+    // Travel
     travel_purpose: '',
     departure_date: '',
-    doc_birth_certificate: false,
-    doc_photos: false,
-    doc_chief_letter: false,
+
+    // Renewal — previous passport
     old_passport_number: '',
     old_passport_issued: '',
     old_passport_expiry: '',
-    doc_old_passport: false,
+
+    // Guarantor
     guarantor_name: '',
     guarantor_id: '',
     guarantor_phone: '',
+
+    // Collection + payment
     collection_branch: 'Maseru',
     payment_bank: '',
+
+    // Declarations
     truth_declaration: false,
     data_consent: false,
   });
 
+  // Uploads (real files instead of "I have..." checkboxes)
+  const [uploads, setUploads] = useState({
+    birth_certificate: null,
+    photos: null,
+    chief_letter: null,
+    old_passport: null,
+  });
+
   const [paymentRef] = useState(generatePaymentReference());
 
+  // 🌟 Auto-fill from profile
+  useAutoFill(profile, form, setForm);
+
   const update = (key, value) => setForm({ ...form, [key]: value });
+  const setUpload = (k, v) => setUploads({ ...uploads, [k]: v });
 
   const fees = computeFees(form.passport_type, form.book_format, form.processing_speed);
   const readyDate = computeReadyDate(form.processing_speed);
 
   const requiredDocsOK = isRenewal
-    ? form.doc_old_passport && form.doc_photos
-    : form.doc_birth_certificate && form.doc_photos;
+    ? uploads.old_passport && uploads.photos
+    : uploads.birth_certificate && uploads.photos;
 
   const guarantorOK =
     isRenewal ||
@@ -338,12 +377,12 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
       processing_speed: form.processing_speed,
       travel_purpose: form.travel_purpose,
       departure_date: form.departure_date,
-      documents_declared: isRenewal
-        ? { old_passport: form.doc_old_passport, photos: form.doc_photos }
+      documents_uploaded: isRenewal
+        ? { old_passport: uploads.old_passport, photos: uploads.photos }
         : {
-            birth_certificate: form.doc_birth_certificate,
-            photos: form.doc_photos,
-            chief_letter: form.doc_chief_letter,
+            birth_certificate: uploads.birth_certificate,
+            photos: uploads.photos,
+            chief_letter: uploads.chief_letter,
           },
       previous_passport: isRenewal
         ? {
@@ -377,7 +416,6 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
     await onSubmit(isRenewal ? 'Passport Renewal' : 'New Passport', payload);
   };
 
-  // Build fee rows for the shared PaymentBlock
   const feeRows = [
     { label: `${form.passport_type} passport · ${form.book_format}`, amount: fees.base },
   ];
@@ -398,6 +436,7 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
       </div>
 
       <form onSubmit={handleSubmit}>
+        {/* 1. APPLICANT — auto-filled */}
         <div className="module-section">
           <div className="module-section-title">1 · Applicant</div>
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
@@ -407,8 +446,17 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
               color: 'white',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 24, fontWeight: 'bold', flexShrink: 0,
+              overflow: 'hidden',
             }}>
-              {(profile?.full_name || '?').charAt(0).toUpperCase()}
+              {profile?.photo_url ? (
+                <img
+                  src={profile.photo_url}
+                  alt={profile?.full_name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                (profile?.full_name || '?').charAt(0).toUpperCase()
+              )}
             </div>
             <div style={{ flex: 1, minWidth: 240 }}>
               <div style={{ fontSize: 16, fontWeight: 'bold', color: '#003366' }}>
@@ -418,13 +466,16 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
                 National ID: {profile?.national_id}
               </div>
               <div style={{ fontSize: 13, color: '#666' }}>
-                Date of Birth: {profile?.date_of_birth} · Citizenship:{' '}
-                {profile?.citizenship_status || 'Citizen'}
+                Date of Birth: {profile?.date_of_birth}
+              </div>
+              <div style={{ fontSize: 13, color: '#666' }}>
+                Citizenship: <strong>{getCitizenshipDisplay(profile?.citizenship_status)}</strong>
               </div>
             </div>
           </div>
         </div>
 
+        {/* 2. PASSPORT TYPE */}
         <div className="module-section">
           <div className="module-section-title">2 · Passport type and format</div>
           <FormField
@@ -452,6 +503,7 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
           </div>
         </div>
 
+        {/* 3. PROCESSING SPEED */}
         <div className="module-section">
           <div className="module-section-title">3 · Processing speed</div>
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
@@ -466,6 +518,7 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
           </div>
         </div>
 
+        {/* 4. TRAVEL DETAILS */}
         <div className="module-section">
           <div className="module-section-title">4 · Travel details</div>
           <FormField
@@ -485,6 +538,7 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
           />
         </div>
 
+        {/* 5. PREVIOUS PASSPORT (renewal only) */}
         {isRenewal && (
           <div className="module-section">
             <div className="module-section-title">5 · Previous passport</div>
@@ -512,44 +566,45 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
           </div>
         )}
 
+        {/* 6. UPLOAD DOCUMENTS */}
         <div className="module-section">
           <div className="module-section-title">
-            {isRenewal ? '6 · Documents you will bring' : '5 · Documents you will bring'}
+            {isRenewal ? '6 · Upload your documents' : '5 · Upload your documents'}
           </div>
+          <p style={{ fontSize: 13, color: '#666', marginTop: 0, marginBottom: 12 }}>
+            Take clear photos or scans of each document and upload them below. JPG, PNG, or PDF.
+          </p>
+
           {isRenewal ? (
             <>
-              <Checkbox
-                checked={form.doc_old_passport}
-                onChange={(v) => update('doc_old_passport', v)}
-                label="I have my old passport (original)"
+              <CloudinaryUpload
+                label="Old Passport (photo of the data page) *"
+                onUpload={(url) => setUpload('old_passport', url)}
               />
-              <Checkbox
-                checked={form.doc_photos}
-                onChange={(v) => update('doc_photos', v)}
-                label="I have 2 passport-size photos (taken within 6 months)"
+              <CloudinaryUpload
+                label="2 Passport-size Photos (taken within 6 months) *"
+                onUpload={(url) => setUpload('photos', url)}
               />
             </>
           ) : (
             <>
-              <Checkbox
-                checked={form.doc_birth_certificate}
-                onChange={(v) => update('doc_birth_certificate', v)}
-                label="I have my birth certificate (original)"
+              <CloudinaryUpload
+                label="Birth Certificate (original) *"
+                onUpload={(url) => setUpload('birth_certificate', url)}
               />
-              <Checkbox
-                checked={form.doc_photos}
-                onChange={(v) => update('doc_photos', v)}
-                label="I have 2 passport-size photos (taken within 6 months)"
+              <CloudinaryUpload
+                label="2 Passport-size Photos (taken within 6 months) *"
+                onUpload={(url) => setUpload('photos', url)}
               />
-              <Checkbox
-                checked={form.doc_chief_letter}
-                onChange={(v) => update('doc_chief_letter', v)}
-                label="I have a letter from my Chief confirming my identity (optional for urban residents)"
+              <CloudinaryUpload
+                label="Chief's Confirmation Letter (optional for urban residents)"
+                onUpload={(url) => setUpload('chief_letter', url)}
               />
             </>
           )}
         </div>
 
+        {/* 7. GUARANTOR (new only) */}
         {!isRenewal && (
           <div className="module-section">
             <div className="module-section-title">6 · Guarantor</div>
@@ -579,6 +634,7 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
           </div>
         )}
 
+        {/* 8. COLLECTION BRANCH */}
         <div className="module-section">
           <div className="module-section-title">7 · Collection branch</div>
           <FormField
@@ -595,6 +651,7 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
           </p>
         </div>
 
+        {/* 9. PAYMENT */}
         <div className="module-section">
           <div className="module-section-title">9 · Payment</div>
           <PaymentBlock
@@ -606,6 +663,7 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
           />
         </div>
 
+        {/* 10. DECLARATIONS */}
         <div className="module-section" style={{ borderBottom: 'none', paddingBottom: 0 }}>
           <div className="module-section-title">10 · Declarations</div>
           <Checkbox
@@ -620,6 +678,7 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
           />
         </div>
 
+        {/* Estimated ready date notice */}
         <div style={{
           background: '#fff8e0',
           border: '1px solid #ffe08a',

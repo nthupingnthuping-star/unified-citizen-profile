@@ -34,6 +34,15 @@ const getInitials = (fullName) => {
   );
 };
 
+// Map any stored citizenship value → display label
+// Handles legacy "Citizen", new "Mosotho", and residents.
+const getCitizenshipLabel = (raw) => {
+  const value = (raw || '').toLowerCase();
+  if (value.includes('mosotho') || value.includes('citizen')) return 'Mosotho';
+  if (value.includes('resident')) return 'Resident';
+  return 'Mosotho'; // default for new citizens
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
@@ -65,10 +74,8 @@ const Dashboard = () => {
   const genderKey = profile?.gender?.toLowerCase() || 'male';
   const genderLabel = t(genderKey);
 
-  const citizenshipKey = profile?.citizenship_status?.toLowerCase().includes('citizen')
-    ? 'citizen'
-    : 'unknown';
-  const citizenshipLabel = t(citizenshipKey);
+  // ✅ FIXED: shows "Mosotho" for both 'Citizen' and 'Mosotho' stored values
+  const citizenshipLabel = getCitizenshipLabel(profile?.citizenship_status);
 
   const photoMissing = !photoUrl;
 

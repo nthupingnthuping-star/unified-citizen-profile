@@ -7,8 +7,11 @@ import {
   getMyApplications,
   getMyTinRegistration,
   submitTinRegistration,
+  getCitizenMasterData,
+  updateCitizenEmployment,
   DEPARTMENTS,
 } from '../../firebase/db';
+import useAutoFill from '../../hooks/useAutoFill';
 import Layout from '../common/Layout';
 import Alert from '../common/Alert';
 import Badge from '../common/Badge';
@@ -20,9 +23,51 @@ import VerifiedGuard from '../citizen/VerifiedGuard';
 import '../../styles/module.css';
 
 // ============================================================
-// FEES
+// CONSTANTS
 // ============================================================
 const TAX_CLEARANCE_FEE = 100;
+
+const EMPLOYMENT_TYPES = [
+  { value: '', label: '— Select —' },
+  { value: 'Government', label: 'Government employee' },
+  { value: 'Private sector', label: 'Private sector employee' },
+  { value: 'Self-employed', label: 'Self-employed' },
+  { value: 'Unemployed', label: 'Unemployed' },
+  { value: 'Retired', label: 'Retired' },
+];
+
+// Initial form states — used for reset after submit
+const INITIAL_TAX_FORM = {
+  business_name: '',
+  business_type: '',
+  traders_license_number: '',
+  tin: '',
+  purpose: '',
+  is_new_business: false,
+  bank_name: '',
+};
+
+const INITIAL_REFUND_FORM = {
+  employer: '',
+  amount: '',
+  has_form_p9: false,
+  employer_name: '',
+  employment_type: '',
+  employee_number: '',
+};
+
+const INITIAL_TIN_FORM = {
+  taxpayer_type: 'Individual',
+  business_name: '',
+  business_type: 'Sole Proprietor',
+  traders_license_number: '',
+};
+
+const INITIAL_TIN_UPLOADS = {
+  employment_contract: null,
+  traders_licence: null,
+  business_registration: null,
+};
 
 const generatePaymentReference = (prefix = 'PAY-RSL') => {
   const year = new Date().getFullYear();
@@ -39,49 +84,38 @@ const FinanceModule = () => {
 
   const [applications, setApplications] = useState([]);
   const [tinRegistration, setTinRegistration] = useState(null);
+  const [masterData, setMasterData] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [lastSubmission, setLastSubmission] = useState(null);
 
-  const [taxForm, setTaxForm] = useState({
-    business_name: '',
-    tin: '',
-    purpose: '',
-    is_new_business: false,
-    bank_name: '',
-  });
-  const [taxPaymentRef] = useState(() => generatePaymentReference('PAY-RSL-TCC'));
+  // Track which tab was just submitted so we can hide its form
+  const [submittedTab, setSubmittedTab] = useState(null);
 
-  const [refundForm, setRefundForm] = useState({
-    employer: '',
-    amount: '',
-    has_form_p9: false,
-  });
-  const [refundPaymentRef] = useState(() => generatePaymentReference('PAY-RSL-REF'));
+  // ---------- TAX CLEARANCE ----------
+  const [taxForm, setTaxForm] = useState(INITIAL_TAX_FORM);
+  const [taxPaymentRef, setTaxPaymentRef] = useState(() => generatePaymentReference('PAY-RSL-TCC'));
 
-  const [tinForm, setTinForm] = useState({
-    taxpayer_type: 'Individual',
-    business_name: '',
-    business_type: 'Sole Proprietor',
-    traders_license_number: '',
-  });
+  // ---------- PAYE REFUND ----------
+  const [refundForm, setRefundForm] = useState(INITIAL_REFUND_FORM);
+  const [refundPaymentRef, setRefundPaymentRef] = useState(() => generatePaymentReference('PAY-RSL-REF'));
 
-  const [tinUploads, setTinUploads] = useState({
-    employment_contract: null,
-    traders_licence: null,
-    business_registration: null,
-  });
+  // ---------- TIN REGISTRATION ----------
+  const [tinForm, setTinForm] = useState(INITIAL_TIN_FORM);
+  const [tinUploads, setTinUploads] = useState(INITIAL_TIN_UPLOADS);
 
   const fetchData = async () => {
     if (!profile) return;
     try {
-      const [apps, tin] = await Promise.all([
+      const [apps, tin, master] = await Promise.all([
         getMyApplications(profile.uid),
         getMyTinRegistration(profile.uid),
+        getCitizenMasterData(profile.uid),
       ]);
       setApplications(apps.filter((a) => a.department_id === DEPARTMENTS.FINANCE));
       setTinRegistration(tin);
+      setMasterData(master);
     } catch (err) {
       console.error(err);
     }
@@ -107,6 +141,15 @@ const FinanceModule = () => {
         service_type: serviceType,
         application_data: data,
       });
+
+      if (data.employment && (data.employment.employer_name || data.employment.employment_type)) {
+        try {
+          await updateCitizenEmployment(profile.uid, data.employment);
+        } catch (e) {
+          console.warn('Could not save employment to citizen record:', e);
+        }
+      }
+
       setMessage(`✓ ${r.reference}`);
       setLastSubmission({
         reference: r.reference,
@@ -114,6 +157,8 @@ const FinanceModule = () => {
         paymentReference: data.payment?.reference,
         amount: data.fees?.total || 0,
       });
+      // 👇 Mark this service as submitted so its form is hidden
+      setSubmittedTab(serviceType);
       fetchData();
     } catch (err) {
       setMessage(`✗ ${err.message}`);
@@ -147,6 +192,31 @@ const FinanceModule = () => {
     }
   };
 
+  // -------- Tab change clears submitted state --------
+  const handleTabChange = (key) => {
+    setActiveTab(key);
+    setSubmittedTab(null);
+    setLastSubmission(null);
+    setMessage('');
+  };
+
+  // -------- Reset handlers (called from "File Another") --------
+  const resetTaxForm = () => {
+    setSubmittedTab(null);
+    setLastSubmission(null);
+    setMessage('');
+    setTaxForm(INITIAL_TAX_FORM);
+    setTaxPaymentRef(generatePaymentReference('PAY-RSL-TCC'));
+  };
+
+  const resetRefundForm = () => {
+    setSubmittedTab(null);
+    setLastSubmission(null);
+    setMessage('');
+    setRefundForm(INITIAL_REFUND_FORM);
+    setRefundPaymentRef(generatePaymentReference('PAY-RSL-REF'));
+  };
+
   const statusColor = (s) => {
     if (s === 'approved' || s === 'completed') return 'green';
     if (s === 'rejected' || s === 'cancelled') return 'red';
@@ -176,7 +246,9 @@ const FinanceModule = () => {
   const canSubmitRefund =
     refundForm.employer.trim() &&
     refundForm.amount &&
-    Number(refundForm.amount) > 0;
+    Number(refundForm.amount) > 0 &&
+    refundForm.employer_name.trim() &&
+    refundForm.employment_type;
 
   const TABS = [
     { key: 'dashboard', label: 'My Applications' },
@@ -184,6 +256,9 @@ const FinanceModule = () => {
     { key: 'tax', label: 'Tax Clearance' },
     { key: 'refund', label: 'PAYE Refund' },
   ];
+
+  const TAX_SERVICE = 'Tax Clearance Certificate (e-TCC)';
+  const REFUND_SERVICE = 'PAYE Tax Refund';
 
   return (
     <VerifiedGuard serviceName={t('ministry_of_finance')}>
@@ -200,7 +275,7 @@ const FinanceModule = () => {
             {TABS.map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => handleTabChange(tab.key)}
                 className={`module-tab ${activeTab === tab.key ? 'active' : ''}`}
               >
                 {tab.label}
@@ -217,7 +292,8 @@ const FinanceModule = () => {
             </Alert>
           )}
 
-          {lastSubmission && (
+          {/* ---------- SUCCESS BANNER (only when a form was just submitted) ---------- */}
+          {lastSubmission && submittedTab && (
             <div className="module-card" style={{ marginBottom: 20 }}>
               <div style={{ padding: 10, textAlign: 'center' }}>
                 <h3 style={{ color: '#006600', marginTop: 0, marginBottom: 12 }}>
@@ -273,24 +349,24 @@ const FinanceModule = () => {
             <div className="module-card">
               <div className="module-section-title">My Finance Applications</div>
               <Table
-                headers={[t('reference'), t('service'), t('status'), t('submitted'), t('action')]}
+                headers={['Reference', 'Service', 'Status', 'Submitted', 'Action']}
                 rows={applications.map((a) => [
                   a.application_reference,
                   a.service_type,
-                  <Badge color={statusColor(a.status)}>{t(a.status)}</Badge>,
+                  <Badge color={statusColor(a.status)}>{a.status}</Badge>,
                   a.submitted_at?.toDate?.().toLocaleDateString() || '—',
                   (a.status === 'approved' || a.status === 'completed') ? (
                     <Link
                       to={`/certificate/${a.application_reference}`}
                       style={{ color: '#003366', fontWeight: 'bold', textDecoration: 'underline', fontSize: 13 }}
                     >
-                      {t('view_certificate')}
+                      View Certificate
                     </Link>
                   ) : (
                     <span style={{ color: '#999', fontSize: 12 }}>—</span>
                   ),
                 ])}
-                emptyMessage={t('no_applications_yet')}
+                emptyMessage="No applications yet."
               />
             </div>
           )}
@@ -520,7 +596,7 @@ const FinanceModule = () => {
                     {!tinRegistration && ' You have not yet registered for a TIN.'}
                   </Alert>
                   <button
-                    onClick={() => setActiveTab('tin')}
+                    onClick={() => handleTabChange('tin')}
                     style={{
                       background: 'linear-gradient(135deg, #003366 0%, #0055aa 100%)',
                       color: 'white',
@@ -536,18 +612,27 @@ const FinanceModule = () => {
                     {tinRegistration ? 'View TIN Status' : 'Register for TIN'}
                   </button>
                 </div>
+              ) : submittedTab === TAX_SERVICE ? (
+                <SuccessPanel
+                  serviceName="Tax Clearance Certificate"
+                  reference={lastSubmission?.reference}
+                  onReset={resetTaxForm}
+                />
               ) : (
-                <div className="module-card">
-                  <div className="module-section-title">Tax Clearance Certificate (e-TCC)</div>
-                  <p style={{ color: '#555', marginTop: 0 }}>
-                    Valid for 12 months. Fee: <strong>M {TAX_CLEARANCE_FEE}</strong>.
-                    New businesses get 14-day clearance.
-                  </p>
-
-                  <form onSubmit={(e) => {
+                <TaxClearanceForm
+                  form={taxForm}
+                  setForm={setTaxForm}
+                  tin={tinRegistration.assigned_tin}
+                  tinRegistration={tinRegistration}
+                  profile={profile}
+                  masterData={masterData}
+                  paymentRef={taxPaymentRef}
+                  submitting={loading}
+                  canSubmit={canSubmitTax}
+                  onSubmit={(e) => {
                     e.preventDefault();
                     if (!canSubmitTax) return;
-                    submit('Tax Clearance Certificate (e-TCC)', {
+                    submit(TAX_SERVICE, {
                       ...taxForm,
                       tin: tinRegistration.assigned_tin,
                       payment: {
@@ -557,64 +642,8 @@ const FinanceModule = () => {
                       },
                       fees: { base: TAX_CLEARANCE_FEE, total: TAX_CLEARANCE_FEE },
                     });
-                  }}>
-                    <div className="module-section">
-                      <div className="module-section-title">1 · TIN</div>
-                      <div style={{
-                        background: '#eef7ee',
-                        padding: 12,
-                        borderRadius: 6,
-                        fontSize: 14,
-                        fontWeight: 'bold',
-                        color: '#006600',
-                        fontFamily: 'monospace',
-                      }}>
-                        {tinRegistration.assigned_tin}
-                      </div>
-                    </div>
-
-                    <div className="module-section">
-                      <div className="module-section-title">2 · Business details</div>
-                      <FormField
-                        label={t('business_name')}
-                        value={taxForm.business_name}
-                        onChange={(v) => setTaxForm({ ...taxForm, business_name: v })}
-                        required
-                      />
-                      <FormField
-                        label={t('purpose')}
-                        value={taxForm.purpose}
-                        onChange={(v) => setTaxForm({ ...taxForm, purpose: v })}
-                        required
-                      />
-                      <Checkbox
-                        checked={taxForm.is_new_business}
-                        onChange={(v) => setTaxForm({ ...taxForm, is_new_business: v })}
-                        label={t('is_new_business')}
-                      />
-                    </div>
-
-                    <div className="module-section">
-                      <div className="module-section-title">3 · Payment</div>
-                      <PaymentBlock
-                        reference={taxPaymentRef}
-                        bankName={taxForm.bank_name}
-                        onBankChange={(v) => setTaxForm({ ...taxForm, bank_name: v })}
-                        rows={[{ label: 'Tax Clearance Certificate', amount: TAX_CLEARANCE_FEE }]}
-                        total={TAX_CLEARANCE_FEE}
-                      />
-                    </div>
-
-                    <div className="module-section" style={{ borderBottom: 'none', paddingBottom: 0 }}>
-                      <div className="module-section-title">4 · Submit</div>
-                      <SubmitButton
-                        canSubmit={canSubmitTax && !loading}
-                        submitting={loading}
-                        label={t('submit_application')}
-                      />
-                    </div>
-                  </form>
-                </div>
+                  }}
+                />
               )}
             </>
           )}
@@ -628,7 +657,7 @@ const FinanceModule = () => {
                     You must have an <strong>approved TIN</strong> before claiming a PAYE refund.
                   </Alert>
                   <button
-                    onClick={() => setActiveTab('tin')}
+                    onClick={() => handleTabChange('tin')}
                     style={{
                       background: 'linear-gradient(135deg, #003366 0%, #0055aa 100%)',
                       color: 'white',
@@ -644,99 +673,41 @@ const FinanceModule = () => {
                     {tinRegistration ? 'View TIN Status' : 'Register for TIN'}
                   </button>
                 </div>
+              ) : submittedTab === REFUND_SERVICE ? (
+                <SuccessPanel
+                  serviceName="PAYE Refund"
+                  reference={lastSubmission?.reference}
+                  onReset={resetRefundForm}
+                />
               ) : (
-                <div className="module-card">
-                  <div className="module-section-title">PAYE Tax Refund</div>
-                  <p style={{ color: '#555', marginTop: 0 }}>
-                    If your employer deducted more tax than you owe.
-                    <strong> No fee</strong> — this is a free service.
-                  </p>
-
-                  <form onSubmit={(e) => {
+                <PayeRefundForm
+                  form={refundForm}
+                  setForm={setRefundForm}
+                  tin={tinRegistration.assigned_tin}
+                  profile={profile}
+                  masterData={masterData}
+                  paymentRef={refundPaymentRef}
+                  submitting={loading}
+                  canSubmit={canSubmitRefund}
+                  onSubmit={(e) => {
                     e.preventDefault();
                     if (!canSubmitRefund) return;
-                    submit('PAYE Tax Refund', {
+                    submit(REFUND_SERVICE, {
                       ...refundForm,
                       tin: tinRegistration.assigned_tin,
+                      employment: {
+                        employer_name: refundForm.employer_name,
+                        employment_type: refundForm.employment_type,
+                        employee_number: refundForm.employee_number,
+                      },
                       payment: {
                         reference: refundPaymentRef,
                         status: 'no_payment_required',
                       },
                       fees: { base: 0, total: 0 },
                     });
-                  }}>
-                    <div className="module-section">
-                      <div className="module-section-title">1 · TIN</div>
-                      <div style={{
-                        background: '#eef7ee',
-                        padding: 12,
-                        borderRadius: 6,
-                        fontSize: 14,
-                        fontWeight: 'bold',
-                        color: '#006600',
-                        fontFamily: 'monospace',
-                      }}>
-                        {tinRegistration.assigned_tin}
-                      </div>
-                    </div>
-
-                    <div className="module-section">
-                      <div className="module-section-title">2 · Refund details</div>
-                      <FormField
-                        label={t('employer')}
-                        value={refundForm.employer}
-                        onChange={(v) => setRefundForm({ ...refundForm, employer: v })}
-                        required
-                      />
-                      <FormField
-                        label={t('amount_maloti')}
-                        type="number"
-                        value={refundForm.amount}
-                        onChange={(v) => setRefundForm({ ...refundForm, amount: v })}
-                        required
-                      />
-                      <Checkbox
-                        checked={refundForm.has_form_p9}
-                        onChange={(v) => setRefundForm({ ...refundForm, has_form_p9: v })}
-                        label={t('have_form_p9')}
-                      />
-                    </div>
-
-                    <div className="module-section">
-                      <div className="module-section-title">3 · Reference</div>
-                      <div style={{
-                        background: '#f0f6ff',
-                        padding: 16,
-                        borderRadius: 6,
-                      }}>
-                        <div style={{ fontSize: 11, color: '#666', textTransform: 'uppercase', letterSpacing: 1 }}>
-                          Tracking reference
-                        </div>
-                        <div style={{
-                          fontSize: 20,
-                          fontWeight: 'bold',
-                          color: '#003366',
-                          fontFamily: 'monospace',
-                          marginTop: 4,
-                        }}>
-                          {refundPaymentRef}
-                        </div>
-                        <p style={{ fontSize: 12, color: '#666', margin: '8px 0 0 0' }}>
-                          Keep this reference for tracking. No payment is required for this service.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="module-section" style={{ borderBottom: 'none', paddingBottom: 0 }}>
-                      <div className="module-section-title">4 · Submit</div>
-                      <SubmitButton
-                        canSubmit={canSubmitRefund && !loading}
-                        submitting={loading}
-                        label={t('submit_refund_claim')}
-                      />
-                    </div>
-                  </form>
-                </div>
+                  }}
+                />
               )}
             </>
           )}
@@ -747,7 +718,374 @@ const FinanceModule = () => {
 };
 
 // ============================================================
-// REUSABLE PIECES
+// SUCCESS PANEL — shown instead of the form after submit
+// ============================================================
+const SuccessPanel = ({ serviceName, reference, onReset }) => (
+  <div className="module-card">
+    <div style={{ textAlign: 'center', padding: 40 }}>
+      <div style={{
+        width: 84,
+        height: 84,
+        borderRadius: '50%',
+        background: 'linear-gradient(135deg, #d4edda 0%, #b8e0c4 100%)',
+        color: '#006600',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: '0 auto 24px',
+        fontSize: 46,
+        fontWeight: 'bold',
+        boxShadow: '0 8px 24px rgba(0, 102, 0, 0.15)',
+      }}>
+        ✓
+      </div>
+
+      <h2 style={{ color: '#006600', marginTop: 0, fontSize: 26, marginBottom: 10 }}>
+        {serviceName} submitted
+      </h2>
+
+      <p style={{
+        color: '#666',
+        fontSize: 15,
+        maxWidth: 480,
+        margin: '12px auto 24px',
+        lineHeight: 1.6,
+      }}>
+        Your application has been received and is now in the queue.
+        You'll receive a notification once it's processed.
+      </p>
+
+      {reference && (
+        <div style={{
+          display: 'inline-block',
+          background: '#f0f6ff',
+          padding: '12px 24px',
+          borderRadius: 6,
+          marginBottom: 28,
+        }}>
+          <div style={{
+            fontSize: 11,
+            color: '#888',
+            textTransform: 'uppercase',
+            letterSpacing: 1,
+            marginBottom: 4,
+          }}>
+            Reference
+          </div>
+          <div style={{
+            fontSize: 20,
+            fontWeight: 'bold',
+            color: '#003366',
+            fontFamily: 'monospace',
+          }}>
+            {reference}
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          onClick={onReset}
+          style={{
+            background: 'linear-gradient(135deg, #003366 0%, #0055aa 100%)',
+            color: 'white',
+            border: 'none',
+            padding: '12px 28px',
+            borderRadius: 999,
+            fontSize: 15,
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            boxShadow: '0 4px 14px rgba(0, 51, 102, 0.25)',
+          }}
+        >
+          File Another Application
+        </button>
+        <Link
+          to="/finance"
+          style={{
+            background: 'white',
+            color: '#003366',
+            border: '1px solid #003366',
+            padding: '11px 24px',
+            borderRadius: 999,
+            fontSize: 14,
+            textDecoration: 'none',
+            display: 'inline-block',
+          }}
+        >
+          Back to My Applications
+        </Link>
+      </div>
+    </div>
+  </div>
+);
+
+// ============================================================
+// TAX CLEARANCE FORM
+// ============================================================
+const TaxClearanceForm = ({
+  form,
+  setForm,
+  tin,
+  tinRegistration,
+  profile,
+  masterData,
+  paymentRef,
+  submitting,
+  canSubmit,
+  onSubmit,
+}) => {
+  const update = (k, v) => setForm({ ...form, [k]: v });
+
+  useAutoFill(profile, form, setForm);
+
+  useEffect(() => {
+    if (!tinRegistration) return;
+
+    setForm((prev) => {
+      const next = { ...prev };
+
+      if (tin && !next.tin) next.tin = tin;
+
+      if (!next.business_name && tinRegistration.business_name) {
+        next.business_name = tinRegistration.business_name;
+      }
+      if (!next.business_type && tinRegistration.business_type) {
+        next.business_type = tinRegistration.business_type;
+      }
+      if (!next.traders_license_number && tinRegistration.traders_license_number) {
+        next.traders_license_number = tinRegistration.traders_license_number;
+      }
+
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tinRegistration, tin]);
+
+  return (
+    <div className="module-card">
+      <div className="module-section-title">Tax Clearance Certificate (e-TCC)</div>
+
+      <Alert type="info">
+        Valid for 12 months. Fee: <strong>M {TAX_CLEARANCE_FEE}</strong>.
+        New businesses get 14-day clearance.
+      </Alert>
+
+      <form onSubmit={onSubmit}>
+        <div className="module-section">
+          <div className="module-section-title">1 · TIN</div>
+          <div style={{
+            background: '#eef7ee',
+            padding: 12,
+            borderRadius: 6,
+            fontSize: 14,
+            fontWeight: 'bold',
+            color: '#006600',
+            fontFamily: 'monospace',
+          }}>
+            {tin || '—'}
+          </div>
+        </div>
+
+        <div className="module-section">
+          <div className="module-section-title">2 · Business details</div>
+          <FormField
+            label="Business Name"
+            value={form.business_name}
+            onChange={(v) => update('business_name', v)}
+            placeholder="e.g. AfterHours Club"
+            required
+          />
+          <FormField
+            label="Purpose"
+            value={form.purpose}
+            onChange={(v) => update('purpose', v)}
+            placeholder="e.g. Tender application, bank loan, contract work"
+            required
+          />
+          <Checkbox
+            checked={form.is_new_business}
+            onChange={(v) => update('is_new_business', v)}
+            label="This is a newly registered business"
+          />
+        </div>
+
+        <div className="module-section">
+          <div className="module-section-title">3 · Payment</div>
+          <PaymentBlock
+            reference={paymentRef}
+            bankName={form.bank_name}
+            onBankChange={(v) => update('bank_name', v)}
+            rows={[{ label: 'Tax Clearance Certificate', amount: TAX_CLEARANCE_FEE }]}
+            total={TAX_CLEARANCE_FEE}
+          />
+        </div>
+
+        <SubmitButton
+          canSubmit={canSubmit && !submitting}
+          submitting={submitting}
+          label="Submit Application"
+        />
+      </form>
+    </div>
+  );
+};
+
+// ============================================================
+// PAYE REFUND FORM
+// ============================================================
+const PayeRefundForm = ({
+  form,
+  setForm,
+  tin,
+  profile,
+  masterData,
+  paymentRef,
+  submitting,
+  canSubmit,
+  onSubmit,
+}) => {
+  const update = (k, v) => setForm({ ...form, [k]: v });
+
+  useAutoFill(profile, form, setForm);
+
+  const isGovEmployee =
+    form.employment_type === 'Government' ||
+    masterData?.employment?.employment_type === 'Government';
+
+  return (
+    <div className="module-card">
+      <div className="module-section-title">PAYE Tax Refund</div>
+
+      <Alert type="info">
+        If your employer deducted more tax than you owe.
+        <strong> No fee</strong> — this is a free service.
+      </Alert>
+
+      {isGovEmployee && (
+        <div style={{
+          background: '#e6f4ea',
+          border: '1px solid #a8d5b8',
+          borderRadius: 8,
+          padding: 16,
+          marginBottom: 20,
+          fontSize: 13,
+          color: '#006600',
+          lineHeight: 1.6,
+        }}>
+          <strong>Government employees are eligible for PAYE refunds.</strong>{' '}
+          This claim will be verified against your payroll records at{' '}
+          {form.employer_name || masterData?.employment?.employer_name || 'your employer'}.
+        </div>
+      )}
+
+      <form onSubmit={onSubmit}>
+        <div className="module-section">
+          <div className="module-section-title">1 · TIN</div>
+          <div style={{
+            background: '#eef7ee',
+            padding: 12,
+            borderRadius: 6,
+            fontSize: 14,
+            fontWeight: 'bold',
+            color: '#006600',
+            fontFamily: 'monospace',
+          }}>
+            {tin || '—'}
+          </div>
+        </div>
+
+        <div className="module-section">
+          <div className="module-section-title">2 · Refund details</div>
+          <FormField
+            label="Employer"
+            value={form.employer}
+            onChange={(v) => update('employer', v)}
+            placeholder="e.g. Ministry of Education (as on payslip)"
+            required
+          />
+          <FormField
+            label="Amount claimed (M)"
+            type="number"
+            value={form.amount}
+            onChange={(v) => update('amount', v)}
+            placeholder="e.g. 1500"
+            required
+          />
+          <Checkbox
+            checked={form.has_form_p9}
+            onChange={(v) => update('has_form_p9', v)}
+            label="I have my employer's Form P9 (tax certificate)"
+          />
+        </div>
+
+        <div className="module-section">
+          <div className="module-section-title">3 · Employment</div>
+          <p style={{ fontSize: 13, color: '#666', marginTop: 0, marginBottom: 12 }}>
+            This helps RSL verify your payroll records and prevent duplicate
+            payouts between Finance and Pensions.
+          </p>
+          <FormField
+            label="Where do you work? *"
+            value={form.employer_name}
+            onChange={(v) => update('employer_name', v)}
+            placeholder="e.g. Ministry of Finance, Private company"
+            required
+          />
+          <FormField
+            label="Employment type *"
+            as="select"
+            value={form.employment_type}
+            onChange={(v) => update('employment_type', v)}
+            options={EMPLOYMENT_TYPES}
+            required
+          />
+          <FormField
+            label="Employee / Payroll number (if any)"
+            value={form.employee_number}
+            onChange={(v) => update('employee_number', v)}
+            placeholder="e.g. MoF-2019-04521"
+          />
+        </div>
+
+        <div className="module-section">
+          <div className="module-section-title">4 · Reference</div>
+          <div style={{
+            background: '#f0f6ff',
+            padding: 16,
+            borderRadius: 6,
+          }}>
+            <div style={{ fontSize: 11, color: '#666', textTransform: 'uppercase', letterSpacing: 1 }}>
+              Tracking reference
+            </div>
+            <div style={{
+              fontSize: 20,
+              fontWeight: 'bold',
+              color: '#003366',
+              fontFamily: 'monospace',
+              marginTop: 4,
+            }}>
+              {paymentRef}
+            </div>
+            <p style={{ fontSize: 12, color: '#666', margin: '8px 0 0 0' }}>
+              Keep this reference for tracking. No payment is required for this service.
+            </p>
+          </div>
+        </div>
+
+        <SubmitButton
+          canSubmit={canSubmit && !submitting}
+          submitting={submitting}
+          label="Submit Refund Claim"
+        />
+      </form>
+    </div>
+  );
+};
+
+// ============================================================
+// SHARED PIECES
 // ============================================================
 const Field = ({ label, value }) => (
   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 14 }}>
