@@ -5,6 +5,8 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import {
   submitApplication,
   getMyApplications,
+  resubmitApplication,
+  getMyFundRecord,
   DEPARTMENTS,
   updateCitizenEmployment,
 } from '../../firebase/db';
@@ -15,6 +17,9 @@ import Alert from '../common/Alert';
 import Badge from '../common/Badge';
 import Table from '../common/Table';
 import FormField from '../common/FormField';
+import CloudinaryUpload from '../common/CloudinaryUpload';
+import EmploymentSection from '../common/EmploymentSection';
+import RequestedInfoBanner from '../common/RequestedInfoBanner';
 import VerifiedGuard from '../citizen/VerifiedGuard';
 import '../../styles/module.css';
 
@@ -36,15 +41,6 @@ const ACCOUNT_TYPE_OPTIONS = [
   { value: 'Savings', label: 'Savings account' },
   { value: 'M-Pesa', label: 'M-Pesa wallet' },
   { value: 'EcoCash', label: 'EcoCash wallet' },
-];
-
-const EMPLOYMENT_TYPES = [
-  { value: '', label: '— Select —' },
-  { value: 'Government', label: 'Government employee' },
-  { value: 'Private sector', label: 'Private sector employee' },
-  { value: 'Self-employed', label: 'Self-employed' },
-  { value: 'Unemployed', label: 'Unemployed' },
-  { value: 'Retired', label: 'Retired' },
 ];
 
 const DISABILITY_TYPE_OPTIONS = [
@@ -72,6 +68,74 @@ const RELATIONSHIP_OPTIONS = [
   { value: 'Other', label: 'Other' },
 ];
 
+const EMPTY_EMPLOYMENT = {
+  employer_name: '',
+  employment_type: '',
+  employee_number: '',
+  monthly_salary: '',
+  payslip_url: null,
+};
+
+// ============================================================
+// HELPERS
+// ============================================================
+const getCitizenshipDisplay = (raw) => {
+  const value = (raw || '').toLowerCase();
+  if (value.includes('mosotho') || value.includes('citizen')) return 'Mosotho';
+  if (value.includes('resident')) return 'Permanent resident';
+  return 'Mosotho';
+};
+
+// Which type of pension fund does this citizen qualify for?
+const getFundEligibility = (age, employment) => {
+  const isGov = employment?.employment_type === 'Government';
+  const isRetired = employment?.employment_type === 'Retired';
+  const isPrivate = employment?.employment_type === 'Private sector';
+  const isSelf = employment?.employment_type === 'Self-employed';
+
+  // Still working in government = no pension yet (has Retirement Fund accruing)
+  if (isGov && age < 60) {
+    return {
+      type: 'none_yet',
+      label: 'Still employed — no payout yet',
+      message: 'You are on the government payroll. You will qualify for the Retirement Fund when you retire.',
+    };
+  }
+
+  // Retired government employee → Retirement Fund
+  if ((isGov || isRetired) && age >= 55) {
+    return {
+      type: 'retirement',
+      label: 'Retirement Fund',
+      message: 'As a former Government employee, you qualify for the Retirement Fund — not Old Age Pension.',
+    };
+  }
+
+  // Private sector or self-employed, 65+ → Old Age Pension
+  if ((isPrivate || isSelf) && age >= 65) {
+    return {
+      type: 'old_age',
+      label: 'Old Age Pension',
+      message: 'As a private sector worker at 65+, you qualify for the Old Age Pension — not the Retirement Fund.',
+    };
+  }
+
+  // Unemployed at 65+ → Old Age Pension
+  if (employment?.employment_type === 'Unemployed' && age >= 65) {
+    return {
+      type: 'old_age',
+      label: 'Old Age Pension',
+      message: 'At 65+ with no current employment, you qualify for the Old Age Pension.',
+    };
+  }
+
+  return {
+    type: 'none_yet',
+    label: 'Not eligible yet',
+    message: 'You do not currently qualify for either pension fund.',
+  };
+};
+
 // ============================================================
 // MAIN COMPONENT
 // ============================================================
@@ -80,16 +144,16 @@ const PensionsModule = () => {
   const { t } = useLanguage();
 
   const [applications, setApplications] = useState([]);
+  const [fundRecord, setFundRecord] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [lastSubmission, setLastSubmission] = useState(null);
+  const [editingApplication, setEditingApplication] = useState(null);
 
-  // ---------------- OLD-AGE PENSION STATE ----------------
+  // ---------- OLD AGE ----------
   const [oldAge, setOldAge] = useState({
-    employer_name: '',
-    employment_type: '',
-    employee_number: '',
+    employment: { ...EMPTY_EMPLOYMENT },
     bank_name: '',
     account_number: '',
     branch_code: '',
@@ -97,6 +161,7 @@ const PensionsModule = () => {
     account_type: 'Cheque',
     chief_name: '',
     chief_confirmation_number: '',
+    chief_letter_url: '',
     chief_confirmed: false,
     applying_for: 'self',
     applicant_name: '',
@@ -107,16 +172,14 @@ const PensionsModule = () => {
   });
   const [oldAgeTouched, setOldAgeTouched] = useState(false);
 
-  // ---------------- DISABILITY STATE ----------------
+  // ---------- DISABILITY ----------
   const [disability, setDisability] = useState({
     disability_type: '',
     disability_description: '',
     doctor_name: '',
     clinic_name: '',
     diagnosis_date: '',
-    employer_name: '',
-    employment_type: '',
-    employee_number: '',
+    employment: { ...EMPTY_EMPLOYMENT },
     bank_name: '',
     account_number: '',
     branch_code: '',
@@ -149,19 +212,24 @@ const PensionsModule = () => {
 
   const age = calculateAge(profile?.date_of_birth);
   const oldAgeEligibility = checkEligibility('OLD_AGE_PENSION', profile?.date_of_birth);
+  const fundEligibility = getFundEligibility(age, profile?.employment);
 
-  const fetchApplications = async () => {
+  const fetchData = async () => {
     if (!profile) return;
     try {
-      const apps = await getMyApplications(profile.uid);
+      const [apps, fund] = await Promise.all([
+        getMyApplications(profile.uid),
+        getMyFundRecord(profile.uid),
+      ]);
       setApplications(apps.filter((a) => a.department_id === DEPARTMENTS.PENSIONS));
+      setFundRecord(fund);
     } catch (err) {
       console.error(err);
     }
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { fetchApplications(); }, [profile]);
+  useEffect(() => { fetchData(); }, [profile]);
 
   const submit = async (serviceType, data) => {
     setLoading(true);
@@ -181,7 +249,7 @@ const PensionsModule = () => {
         try {
           await updateCitizenEmployment(profile.uid, data.employment);
         } catch (e) {
-          console.warn('Could not save employment to citizen record:', e);
+          console.warn('Could not save employment:', e);
         }
       }
 
@@ -193,7 +261,7 @@ const PensionsModule = () => {
         accountNumber: data.payment?.account_number,
         accountHolder: data.payment?.account_holder,
       });
-      fetchApplications();
+      fetchData();
     } catch (err) {
       setMessage(`✗ ${err.message}`);
     } finally {
@@ -201,120 +269,23 @@ const PensionsModule = () => {
     }
   };
 
-  const handleOldAgeSubmit = async (e) => {
-    e.preventDefault();
-    if (!oldAgeEligibility.eligible)
-      return setMessage('✗ You are not yet eligible for Old Age Pension.');
-    if (oldAge.employment_type === 'Government')
-      return setMessage('✗ Government employees cannot apply for Old Age Pension.');
-    if (!oldAge.employer_name.trim())
-      return setMessage('✗ Please enter where you work (or "Unemployed").');
-    if (!oldAge.employment_type)
-      return setMessage('✗ Please select your employment type.');
-    if (!oldAge.bank_name) return setMessage('✗ Please select your bank.');
-    if (!oldAge.account_number.trim())
-      return setMessage('✗ Please enter your account number.');
-    if (!oldAge.account_holder.trim())
-      return setMessage('✗ Please enter the account holder name.');
-    if (!oldAge.truth_declaration || !oldAge.data_consent)
-      return setMessage('✗ Please tick both declaration boxes before submitting.');
-    if (oldAge.applying_for === 'other') {
-      if (
-        !oldAge.applicant_name.trim() ||
-        !oldAge.applicant_id.trim() ||
-        !oldAge.applicant_relationship.trim()
-      )
-        return setMessage('✗ Please complete the applicant (on behalf) details.');
-    }
-    if (oldAge.chief_confirmed && !oldAge.chief_name.trim())
-      return setMessage("✗ Please enter the Chief's name if you ticked the Chief confirmation box.");
-
-    await submit('Old Age Pension', {
-      scheme: 'Old Age Pension',
-      age_at_application: age,
-      employment: {
-        employer_name: oldAge.employer_name,
-        employment_type: oldAge.employment_type,
-        employee_number: oldAge.employee_number,
-      },
-      payment: {
-        bank_name: oldAge.bank_name,
-        account_number: oldAge.account_number,
-        branch_code: oldAge.branch_code,
-        account_holder: oldAge.account_holder,
-        account_type: oldAge.account_type,
-      },
-      chief_confirmation: oldAge.chief_confirmed
-        ? {
-            chief_name: oldAge.chief_name,
-            confirmation_number: oldAge.chief_confirmation_number,
-          }
-        : null,
-      applying_for: oldAge.applying_for,
-      on_behalf_of:
-        oldAge.applying_for === 'other'
-          ? {
-              full_name: oldAge.applicant_name,
-              national_id: oldAge.applicant_id,
-              relationship: oldAge.applicant_relationship,
-            }
-          : null,
-      declarations: {
-        truth: oldAge.truth_declaration,
-        data_consent: oldAge.data_consent,
-        declared_at: new Date().toISOString(),
-      },
-    });
+  const handleStartEdit = (app) => {
+    setEditingApplication(app);
+    setMessage('');
+    setLastSubmission(null);
+    if (app.service_type === 'Old Age Pension') setActiveTab('oldage');
+    else if (app.service_type === 'Disability Grant') setActiveTab('disability');
   };
 
-  const handleDisabilitySubmit = async (e) => {
-    e.preventDefault();
-    if (!disability.disability_type)
-      return setMessage('✗ Please select a disability type.');
-    if (!disability.employer_name.trim())
-      return setMessage('✗ Please enter where you work (or "Unemployed").');
-    if (!disability.employment_type)
-      return setMessage('✗ Please select your employment type.');
-    if (!disability.bank_name) return setMessage('✗ Please select your bank.');
-    if (!disability.account_number.trim())
-      return setMessage('✗ Please enter your account number.');
-    if (!disability.account_holder.trim())
-      return setMessage('✗ Please enter the account holder name.');
-    if (!disability.has_medical_report)
-      return setMessage('✗ Please confirm you have a supporting medical report.');
-    if (!disability.truth_declaration || !disability.data_consent)
-      return setMessage('✗ Please tick both declaration boxes before submitting.');
+  const handleCancelEdit = () => {
+    setEditingApplication(null);
+  };
 
-    await submit('Disability Grant', {
-      scheme: 'Disability Grant',
-      disability: {
-        type: disability.disability_type,
-        description: disability.disability_description,
-      },
-      medical: {
-        doctor_name: disability.doctor_name,
-        clinic_name: disability.clinic_name,
-        diagnosis_date: disability.diagnosis_date,
-        has_medical_report: disability.has_medical_report,
-      },
-      employment: {
-        employer_name: disability.employer_name,
-        employment_type: disability.employment_type,
-        employee_number: disability.employee_number,
-      },
-      payment: {
-        bank_name: disability.bank_name,
-        account_number: disability.account_number,
-        branch_code: disability.branch_code,
-        account_holder: disability.account_holder,
-        account_type: disability.account_type,
-      },
-      declarations: {
-        truth: disability.truth_declaration,
-        data_consent: disability.data_consent,
-        declared_at: new Date().toISOString(),
-      },
-    });
+  const handleResubmitted = () => {
+    setEditingApplication(null);
+    setActiveTab('dashboard');
+    setMessage('✓ Your updated application has been resubmitted for review.');
+    fetchData();
   };
 
   const statusColor = (s) => {
@@ -331,6 +302,10 @@ const PensionsModule = () => {
     { key: 'disability', label: 'Disability Grant' },
   ];
 
+  const needsInfo = applications.filter(
+    (a) => a.status === 'processing' && (a.notes || a.rejection_reason)
+  );
+
   return (
     <VerifiedGuard serviceName={t('pensions_department')}>
       <Layout title={t('pensions_department')}>
@@ -341,6 +316,52 @@ const PensionsModule = () => {
           </div>
 
           <Alert type="info">{t('verified_by_home_affairs')}</Alert>
+
+          {/* 🔔 Fund eligibility banner — shows which fund the citizen qualifies for */}
+          {fundEligibility && (
+            <div style={{
+              background:
+                fundEligibility.type === 'retirement' ? '#e6f4ea'
+                : fundEligibility.type === 'old_age' ? '#f0f6ff'
+                : '#f9f9f9',
+              border: `1px solid ${
+                fundEligibility.type === 'retirement' ? '#a8d5b8'
+                : fundEligibility.type === 'old_age' ? '#cce0ff'
+                : '#e0e0e0'
+              }`,
+              borderRadius: 10,
+              padding: 16,
+              marginBottom: 20,
+            }}>
+              <div style={{
+                fontSize: 13,
+                fontWeight: 'bold',
+                color: fundEligibility.type === 'retirement' ? '#006600'
+                     : fundEligibility.type === 'old_age' ? '#003366'
+                     : '#666',
+                marginBottom: 6,
+              }}>
+                🎯 Your pension eligibility: <u>{fundEligibility.label}</u>
+              </div>
+              <div style={{
+                fontSize: 13,
+                lineHeight: 1.6,
+                color: fundEligibility.type === 'retirement' ? '#006600'
+                     : fundEligibility.type === 'old_age' ? '#003366'
+                     : '#666',
+              }}>
+                {fundEligibility.message}
+                {fundEligibility.type === 'retirement' && (
+                  <>
+                    {' '}
+                    <Link to="/pension/fund" style={{ fontWeight: 'bold', color: '#006600' }}>
+                      Go to your Fund Profile →
+                    </Link>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="module-tabs">
             {TABS.map((tab) => (
@@ -399,7 +420,7 @@ const PensionsModule = () => {
                     color: '#333',
                   }}>
                     <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: 8, fontSize: 13 }}>
-                      💰 Payout account (as submitted)
+                      💰 Payout account
                     </div>
                     <SummaryRow label="Bank / Mobile" value={lastSubmission.bankName} />
                     <SummaryRow label="Account Holder" value={lastSubmission.accountHolder} />
@@ -415,29 +436,56 @@ const PensionsModule = () => {
           )}
 
           {activeTab === 'dashboard' && (
-            <div className="module-card">
-              <div className="module-section-title">My Pension Applications</div>
-              <Table
-                headers={['Reference', 'Service', 'Status', 'Submitted', 'Action']}
-                rows={applications.map((a) => [
-                  a.application_reference,
-                  a.service_type,
-                  <Badge color={statusColor(a.status)}>{t(a.status)}</Badge>,
-                  a.submitted_at?.toDate?.().toLocaleDateString() || '—',
-                  a.status === 'approved' || a.status === 'completed' ? (
-                    <Link
-                      to={`/certificate/${a.application_reference}`}
-                      style={{ color: '#003366', fontWeight: 'bold', textDecoration: 'underline', fontSize: 13 }}
-                    >
-                      View Document
-                    </Link>
-                  ) : (
-                    <span style={{ color: '#999', fontSize: 12 }}>—</span>
-                  ),
-                ])}
-                emptyMessage={t('no_applications_yet')}
-              />
-            </div>
+            <>
+              {needsInfo.map((a) => (
+                <RequestedInfoBanner
+                  key={a.id}
+                  application={a}
+                  onEdit={() => handleStartEdit(a)}
+                />
+              ))}
+
+              <div className="module-card">
+                <div className="module-section-title">My Pension Applications</div>
+                <Table
+                  headers={['Reference', 'Service', 'Status', 'Submitted', 'Action']}
+                  rows={applications.map((a) => [
+                    a.application_reference,
+                    a.service_type,
+                    <Badge color={statusColor(a.status)}>{a.status}</Badge>,
+                    a.submitted_at?.toDate?.().toLocaleDateString() || '—',
+                    a.status === 'processing' && (a.notes || a.rejection_reason) ? (
+                      <button
+                        onClick={() => handleStartEdit(a)}
+                        style={{
+                          background: 'linear-gradient(135deg, #ffcc00 0%, #ff9900 100%)',
+                          color: '#003366',
+                          border: 'none',
+                          padding: '6px 14px',
+                          borderRadius: 999,
+                          fontSize: 12,
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 8px rgba(255, 153, 0, 0.35)',
+                        }}
+                      >
+                        ✎ Edit & Resubmit
+                      </button>
+                    ) : a.status === 'approved' || a.status === 'completed' ? (
+                      <Link
+                        to={`/certificate/${a.application_reference}`}
+                        style={{ color: '#003366', fontWeight: 'bold', textDecoration: 'underline', fontSize: 13 }}
+                      >
+                        View Document
+                      </Link>
+                    ) : (
+                      <span style={{ color: '#999', fontSize: 12 }}>—</span>
+                    ),
+                  ])}
+                  emptyMessage="No applications yet."
+                />
+              </div>
+            </>
           )}
 
           {activeTab === 'fund' && (
@@ -460,6 +508,26 @@ const PensionsModule = () => {
                 <PensionTile to="/pension/beneficiaries" icon="👥" title="Beneficiaries" desc="Manage your nominated beneficiaries" />
                 <PensionTile to="/pension/status" icon="🔍" title="Claim Status" desc="Track the progress of your submitted claims" />
               </div>
+
+              {/* 🔗 Show fund record summary if it exists */}
+              {fundRecord && (
+                <div style={{
+                  marginTop: 24,
+                  background: '#f9fbff',
+                  border: '1px solid #cce0ff',
+                  borderRadius: 10,
+                  padding: 16,
+                }}>
+                  <div style={{ fontSize: 13, fontWeight: 'bold', color: '#003366', marginBottom: 10 }}>
+                    💼 Your pension fund summary
+                  </div>
+                  <SummaryRow label="Member Number" value={fundRecord.member_number} mono />
+                  <SummaryRow label="Employer" value={fundRecord.employer_name} />
+                  <SummaryRow label="Months of Service" value={`${fundRecord.months_of_service || 0} months`} />
+                  <SummaryRow label="Total Fund Credit" value={`M ${(fundRecord.total_fund_credit || 0).toLocaleString()}`} />
+                  <SummaryRow label="Status" value={fundRecord.verification_status} />
+                </div>
+              )}
             </div>
           )}
 
@@ -470,8 +538,16 @@ const PensionsModule = () => {
               profile={profile}
               age={age}
               eligibility={oldAgeEligibility}
+              fundEligibility={fundEligibility}
               submitting={loading}
-              onSubmit={handleOldAgeSubmit}
+              existingApplication={
+                editingApplication?.service_type === 'Old Age Pension'
+                  ? editingApplication
+                  : null
+              }
+              onSubmit={submit}
+              onCancelEdit={handleCancelEdit}
+              onResubmitted={handleResubmitted}
             />
           )}
 
@@ -481,7 +557,14 @@ const PensionsModule = () => {
               setForm={(next) => { setDisability(next); setDisabilityTouched(true); }}
               profile={profile}
               submitting={loading}
-              onSubmit={handleDisabilitySubmit}
+              existingApplication={
+                editingApplication?.service_type === 'Disability Grant'
+                  ? editingApplication
+                  : null
+              }
+              onSubmit={submit}
+              onCancelEdit={handleCancelEdit}
+              onResubmitted={handleResubmitted}
             />
           )}
         </div>
@@ -491,12 +574,25 @@ const PensionsModule = () => {
 };
 
 // ============================================================
-// OLD-AGE PENSION FORM
+// OLD-AGE PENSION FORM (create or edit)
 // ============================================================
-const OldAgePensionForm = ({ form, setForm, profile, age, eligibility, submitting, onSubmit }) => {
+const OldAgePensionForm = ({
+  form,
+  setForm,
+  profile,
+  age,
+  eligibility,
+  fundEligibility,
+  submitting,
+  existingApplication = null,
+  onSubmit,
+  onCancelEdit,
+  onResubmitted,
+}) => {
+  const isEditing = !!existingApplication;
   const update = (key, value) => setForm({ ...form, [key]: value });
 
-  // 🌟 AUTO-FILL every field from profile
+  const [resubmitting, setResubmitting] = useState(false);
   useAutoFill(profile, form, setForm);
 
   const handleBankChange = (bankName) => {
@@ -505,32 +601,125 @@ const OldAgePensionForm = ({ form, setForm, profile, age, eligibility, submittin
   };
 
   const eligible = eligibility?.eligible;
-
-  // 🚫 Government employees are excluded from Old Age Pension
-  const isGovernmentEmployee = form.employment_type === 'Government';
+  const isGovernmentEmployee = form.employment?.employment_type === 'Government';
+  const isRetirementFundEligible = fundEligibility?.type === 'retirement';
+  const blocked = isGovernmentEmployee || isRetirementFundEligible;
 
   const canSubmit =
     eligible &&
-    !isGovernmentEmployee &&
-    form.employer_name?.trim() &&
-    form.employment_type &&
+    !blocked &&
+    form.employment?.employment_type &&
+    form.employment?.employer_name?.trim() &&
     form.bank_name &&
     form.account_number.trim() &&
     form.account_holder.trim() &&
     form.truth_declaration &&
     form.data_consent &&
+    (!form.chief_confirmed || (form.chief_name.trim() && form.chief_letter_url)) &&
     (form.applying_for !== 'other' ||
       (form.applicant_name && form.applicant_id && form.applicant_relationship));
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!canSubmit) return;
+
+    const payload = {
+      scheme: 'Old Age Pension',
+      age_at_application: age,
+      employment: form.employment,
+      payment: {
+        bank_name: form.bank_name,
+        account_number: form.account_number,
+        branch_code: form.branch_code,
+        account_holder: form.account_holder,
+        account_type: form.account_type,
+      },
+      chief_confirmation: form.chief_confirmed
+        ? {
+            chief_name: form.chief_name,
+            confirmation_number: form.chief_confirmation_number,
+            letter_url: form.chief_letter_url,
+          }
+        : null,
+      applying_for: form.applying_for,
+      on_behalf_of:
+        form.applying_for === 'other'
+          ? {
+              full_name: form.applicant_name,
+              national_id: form.applicant_id,
+              relationship: form.applicant_relationship,
+            }
+          : null,
+      declarations: {
+        truth: form.truth_declaration,
+        data_consent: form.data_consent,
+        declared_at: new Date().toISOString(),
+      },
+    };
+
+    if (isEditing) {
+      setResubmitting(true);
+      try {
+        await resubmitApplication(existingApplication.id, payload);
+        if (onResubmitted) onResubmitted();
+      } catch (err) {
+        alert('Failed to resubmit: ' + err.message);
+      } finally {
+        setResubmitting(false);
+      }
+    } else {
+      await onSubmit('Old Age Pension', payload);
+    }
+  };
+
   return (
     <div className="module-card">
-      <div className="module-section-title">Old Age Pension Application</div>
+      {isEditing && (
+        <div style={{
+          background: '#fff8e0',
+          border: '2px solid #ffcc00',
+          borderRadius: 10,
+          padding: 16,
+          marginBottom: 20,
+        }}>
+          <div style={{ fontSize: 15, fontWeight: 'bold', color: '#7a5a00', marginBottom: 6 }}>
+            ✎ Editing — {existingApplication.application_reference}
+          </div>
+          <div style={{ fontSize: 13, color: '#7a5a00', lineHeight: 1.6, marginBottom: 10 }}>
+            <strong>What Pensions needs:</strong>{' '}
+            {existingApplication.notes || existingApplication.rejection_reason}
+          </div>
+          <button
+            type="button"
+            onClick={onCancelEdit}
+            style={{
+              background: 'transparent',
+              border: '1px solid #7a5a00',
+              color: '#7a5a00',
+              padding: '6px 14px',
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 'bold',
+              cursor: 'pointer',
+            }}
+          >
+            Cancel editing
+          </button>
+        </div>
+      )}
 
-      <Alert type="info">
-        Lesotho Old Age Pension is available to citizens aged <strong>65 years and above</strong>.
-      </Alert>
+      <div className="module-section-title">
+        {isEditing ? 'Update Old Age Pension Application' : 'Old Age Pension Application'}
+      </div>
 
-      {/* ⛔ GOVERNMENT EMPLOYEE BLOCK */}
+      {!isEditing && (
+        <Alert type="info">
+          Lesotho Old Age Pension is available to citizens aged{' '}
+          <strong>65 years and above</strong>.
+        </Alert>
+      )}
+
+      {/* ⛔ Government employee block */}
       {isGovernmentEmployee && (
         <div style={{
           background: 'linear-gradient(135deg, #8b0000 0%, #cc0000 100%)',
@@ -538,23 +727,18 @@ const OldAgePensionForm = ({ form, setForm, profile, age, eligibility, submittin
           borderRadius: 12,
           padding: 24,
           marginBottom: 20,
-          boxShadow: '0 8px 24px rgba(204, 0, 0, 0.25)',
         }}>
           <div style={{ fontSize: 32, marginBottom: 8 }}>⛔</div>
           <h2 style={{ margin: '0 0 10px 0', fontSize: 20, color: 'white' }}>
             You cannot apply for Old Age Pension
           </h2>
           <p style={{ margin: '0 0 16px 0', fontSize: 14, opacity: 0.95, lineHeight: 1.6 }}>
-            As a <strong>Government employee</strong>, you already receive a
-            civil-service pension funded by the taxpayer. Old Age Pension is
-            reserved for citizens <strong>not</strong> on the government payroll.
-          </p>
-          <p style={{ margin: '0 0 16px 0', fontSize: 13, opacity: 0.9, lineHeight: 1.6 }}>
-            Once you retire, change your <em>Employment type</em> to
-            <strong> "Retired"</strong> and you can re-apply.
+            As a <strong>Government employee</strong>, you receive a civil-service
+            pension funded by the taxpayer. Old Age Pension is reserved for
+            citizens <strong>not</strong> on the government payroll.
           </p>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <a href="/pension/fund" style={{
+            <Link to="/pension/fund" style={{
               background: 'white',
               color: '#8b0000',
               padding: '10px 20px',
@@ -564,10 +748,10 @@ const OldAgePensionForm = ({ form, setForm, profile, age, eligibility, submittin
               fontSize: 13,
             }}>
               Go to Pension Fund →
-            </a>
+            </Link>
             <button
               type="button"
-              onClick={() => update('employment_type', '')}
+              onClick={() => update('employment', { ...form.employment, employment_type: '' })}
               style={{
                 background: 'rgba(255,255,255,0.15)',
                 color: 'white',
@@ -585,269 +769,39 @@ const OldAgePensionForm = ({ form, setForm, profile, age, eligibility, submittin
         </div>
       )}
 
-      <form onSubmit={onSubmit}>
-        {/* ---------- 1. APPLICANT ---------- */}
-        <div className="module-section">
-          <div className="module-section-title">1 · Applicant</div>
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-            <div style={{
-              width: 60, height: 60, borderRadius: '50%',
-              background: 'linear-gradient(135deg, #003366 0%, #0055aa 100%)',
-              color: 'white',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 24, fontWeight: 'bold', flexShrink: 0,
-              letterSpacing: 1, overflow: 'hidden',
-            }}>
-              {profile?.photo_url ? (
-                <img
-                  src={profile.photo_url}
-                  alt={profile?.full_name}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
-              ) : (
-                (profile?.full_name || '?').charAt(0).toUpperCase()
-              )}
-            </div>
-            <div style={{ flex: 1, minWidth: 240 }}>
-              <div style={{ fontSize: 16, fontWeight: 'bold', color: '#003366' }}>
-                {profile?.full_name}
-              </div>
-              <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>
-                National ID: {profile?.national_id}
-              </div>
-              <div style={{ fontSize: 13, color: '#666' }}>
-                Date of Birth: {profile?.date_of_birth} · Age: <strong>{age}</strong>
-              </div>
-              {eligible ? (
-                <div style={{
-                  display: 'inline-block', marginTop: 8,
-                  background: '#d4edda', color: '#006600',
-                  padding: '4px 12px', borderRadius: 12,
-                  fontSize: 12, fontWeight: 'bold',
-                }}>
-                  ✓ Eligible (age {age})
-                </div>
-              ) : (
-                <div style={{
-                  display: 'inline-block', marginTop: 8,
-                  background: '#fff3cd', color: '#856404',
-                  padding: '4px 12px', borderRadius: 12,
-                  fontSize: 12, fontWeight: 'bold',
-                }}>
-                  Not yet eligible — must be 65+
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div style={{ marginTop: 18 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', color: '#333', marginBottom: 8 }}>
-              Who is this application for?
-            </label>
-            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-              <Radio
-                checked={form.applying_for === 'self'}
-                onChange={() => update('applying_for', 'self')}
-                label="For myself"
-              />
-              <Radio
-                checked={form.applying_for === 'other'}
-                onChange={() => update('applying_for', 'other')}
-                label="On behalf of someone else (next-of-kin)"
-              />
-            </div>
-          </div>
-
-          {form.applying_for === 'other' && (
-            <div style={{ marginTop: 18, padding: 16, background: '#f9f9f9', borderRadius: 6 }}>
-              <div style={{ fontSize: 13, fontWeight: 'bold', color: '#003366', marginBottom: 10 }}>
-                Applicant (on behalf of)
-              </div>
-              <FormField
-                label="Full Name"
-                value={form.applicant_name}
-                onChange={(v) => update('applicant_name', v)}
-                required
-              />
-              <FormField
-                label="National ID"
-                value={form.applicant_id}
-                onChange={(v) => update('applicant_id', v)}
-                required
-              />
-              <FormField
-                label="Relationship"
-                as="select"
-                value={form.applicant_relationship}
-                onChange={(v) => update('applicant_relationship', v)}
-                options={RELATIONSHIP_OPTIONS}
-                required
-              />
-            </div>
-          )}
-        </div>
-
-        {/* ---------- 2. EMPLOYMENT ---------- */}
-        <div className="module-section">
-          <div className="module-section-title">2 · Employment</div>
-          <p style={{ fontSize: 13, color: '#666', marginTop: 0, marginBottom: 12 }}>
-            This helps us ensure you are not receiving duplicate payments from
-            Finance and Pensions.
+      {/* ⛔ Retirement Fund block */}
+      {!isGovernmentEmployee && isRetirementFundEligible && (
+        <div style={{
+          background: '#e6f4ea',
+          border: '1px solid #a8d5b8',
+          borderRadius: 12,
+          padding: 20,
+          marginBottom: 20,
+        }}>
+          <div style={{ fontSize: 24, marginBottom: 6 }}>🏦</div>
+          <h3 style={{ margin: '0 0 8px 0', fontSize: 17, color: '#006600' }}>
+            You qualify for the Retirement Fund — not Old Age Pension
+          </h3>
+          <p style={{ margin: '0 0 14px 0', fontSize: 13, color: '#006600', lineHeight: 1.6 }}>
+            {fundEligibility.message}
           </p>
-          <FormField
-            label="Where do you work? *"
-            value={form.employer_name}
-            onChange={(v) => update('employer_name', v)}
-            placeholder="e.g. Ministry of Education, Self-employed, Unemployed"
-            required
-          />
-          <FormField
-            label="Employment type *"
-            as="select"
-            value={form.employment_type}
-            onChange={(v) => update('employment_type', v)}
-            options={EMPLOYMENT_TYPES}
-            required
-          />
-          <FormField
-            label="Employee / Payroll number (if any)"
-            value={form.employee_number}
-            onChange={(v) => update('employee_number', v)}
-            placeholder="e.g. MoF-2019-04521"
-          />
+          <Link to="/pension/fund" style={{
+            display: 'inline-block',
+            background: '#006600',
+            color: 'white',
+            padding: '10px 22px',
+            borderRadius: 999,
+            textDecoration: 'none',
+            fontWeight: 'bold',
+            fontSize: 13,
+          }}>
+            Go to my Fund Profile →
+          </Link>
         </div>
+      )}
 
-        {/* ---------- 3. PAYOUT ACCOUNT ---------- */}
-        <div className="module-section">
-          <div className="module-section-title">3 · Payout account</div>
-          <PayoutInfoBanner />
-          <FormField
-            label="Bank / Mobile Money"
-            as="select"
-            value={form.bank_name}
-            onChange={handleBankChange}
-            options={BANK_OPTIONS}
-            required
-          />
-          <FormField
-            label="Account Number"
-            value={form.account_number}
-            onChange={(v) => update('account_number', v)}
-            placeholder="e.g. 0123456789"
-            required
-          />
-          <FormField
-            label="Branch Code"
-            value={form.branch_code}
-            onChange={(v) => update('branch_code', v)}
-          />
-          <FormField
-            label="Account Holder Name"
-            value={form.account_holder}
-            onChange={(v) => update('account_holder', v)}
-            required
-          />
-          <FormField
-            label="Account Type"
-            as="select"
-            value={form.account_type}
-            onChange={(v) => update('account_type', v)}
-            options={ACCOUNT_TYPE_OPTIONS}
-          />
-          <PayoutSummary
-            bankName={form.bank_name}
-            accountHolder={form.account_holder}
-            accountNumber={form.account_number}
-            accountType={form.account_type}
-          />
-        </div>
-
-        {/* ---------- 4. CHIEF ---------- */}
-        <div className="module-section">
-          <div className="module-section-title">4 · Chief's confirmation (where applicable)</div>
-          <Checkbox
-            checked={form.chief_confirmed}
-            onChange={(v) => update('chief_confirmed', v)}
-            label="My Chief has certified this application"
-          />
-          {form.chief_confirmed && (
-            <div style={{ marginTop: 12 }}>
-              <FormField
-                label="Chief's Full Name"
-                value={form.chief_name}
-                onChange={(v) => update('chief_name', v)}
-              />
-              <FormField
-                label="Chief's Confirmation Number"
-                value={form.chief_confirmation_number}
-                onChange={(v) => update('chief_confirmation_number', v)}
-                placeholder="Optional"
-              />
-            </div>
-          )}
-        </div>
-
-        {/* ---------- 5. DECLARATIONS ---------- */}
-        <div className="module-section" style={{ borderBottom: 'none', paddingBottom: 0 }}>
-          <div className="module-section-title">5 · Declarations</div>
-          <Checkbox
-            checked={form.truth_declaration}
-            onChange={(v) => update('truth_declaration', v)}
-            label="I declare that the information provided is true and correct."
-          />
-          <Checkbox
-            checked={form.data_consent}
-            onChange={(v) => update('data_consent', v)}
-            label="I consent to a data verification against Home Affairs, the Ministry of Finance, and RSL."
-          />
-        </div>
-
-        <SubmitButton
-          canSubmit={canSubmit}
-          submitting={submitting}
-          label={isGovernmentEmployee ? 'Not eligible as Government employee' : 'Submit Application'}
-        />
-      </form>
-    </div>
-  );
-};
-
-// ============================================================
-// DISABILITY GRANT FORM
-// ============================================================
-const DisabilityGrantForm = ({ form, setForm, profile, submitting, onSubmit }) => {
-  const update = (key, value) => setForm({ ...form, [key]: value });
-
-  // 🌟 AUTO-FILL every field from profile
-  useAutoFill(profile, form, setForm);
-
-  const handleBankChange = (bankName) => {
-    const bank = BANK_OPTIONS.find((b) => b.value === bankName);
-    setForm({ ...form, bank_name: bankName, branch_code: bank?.branch || '' });
-  };
-
-  const canSubmit =
-    form.disability_type &&
-    form.employer_name?.trim() &&
-    form.employment_type &&
-    form.bank_name &&
-    form.account_number.trim() &&
-    form.account_holder.trim() &&
-    form.has_medical_report &&
-    form.truth_declaration &&
-    form.data_consent;
-
-  return (
-    <div className="module-card">
-      <div className="module-section-title">Disability Grant Application</div>
-
-      <Alert type="info">
-        The Disability Grant is available to citizens with a certified disability. A medical report
-        from a registered doctor or clinic is required.
-      </Alert>
-
-      <form onSubmit={onSubmit}>
-        {/* ---------- 1. APPLICANT ---------- */}
+      <form onSubmit={handleSubmit}>
+        {/* 1 · APPLICANT */}
         <div className="module-section">
           <div className="module-section-title">1 · Applicant</div>
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
@@ -876,151 +830,312 @@ const DisabilityGrantForm = ({ form, setForm, profile, submitting, onSubmit }) =
               <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>
                 National ID: {profile?.national_id}
               </div>
+              <div style={{ fontSize: 13, color: '#666' }}>
+                Date of Birth: {profile?.date_of_birth} · Age: <strong>{age}</strong>
+              </div>
+              <div style={{ fontSize: 13, color: '#666' }}>
+                Citizenship: <strong>{getCitizenshipDisplay(profile?.citizenship_status)}</strong>
+              </div>
+              {eligible && !blocked && (
+                <div style={{
+                  display: 'inline-block', marginTop: 8,
+                  background: '#d4edda', color: '#006600',
+                  padding: '4px 12px', borderRadius: 12,
+                  fontSize: 12, fontWeight: 'bold',
+                }}>
+                  ✓ Eligible (age {age})
+                </div>
+              )}
             </div>
           </div>
+
+          <div style={{ marginTop: 18 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', color: '#333', marginBottom: 8 }}>
+              Who is this application for?
+            </label>
+            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+              <Radio
+                checked={form.applying_for === 'self'}
+                onChange={() => update('applying_for', 'self')}
+                label="For myself"
+              />
+              <Radio
+                checked={form.applying_for === 'other'}
+                onChange={() => update('applying_for', 'other')}
+                label="On behalf of someone else (next-of-kin)"
+              />
+            </div>
+          </div>
+
+          {form.applying_for === 'other' && (
+            <div style={{ marginTop: 18, padding: 16, background: '#f9f9f9', borderRadius: 6 }}>
+              <div style={{ fontSize: 13, fontWeight: 'bold', color: '#003366', marginBottom: 10 }}>
+                Applicant (on behalf of)
+              </div>
+              <FormField label="Full Name" value={form.applicant_name} onChange={(v) => update('applicant_name', v)} required />
+              <FormField label="National ID" value={form.applicant_id} onChange={(v) => update('applicant_id', v)} required />
+              <FormField label="Relationship" as="select" value={form.applicant_relationship} onChange={(v) => update('applicant_relationship', v)} options={RELATIONSHIP_OPTIONS} required />
+            </div>
+          )}
         </div>
 
-        {/* ---------- 2. DISABILITY ---------- */}
-        <div className="module-section">
-          <div className="module-section-title">2 · Disability details</div>
-          <FormField
-            label="Type of Disability"
-            as="select"
-            value={form.disability_type}
-            onChange={(v) => update('disability_type', v)}
-            options={DISABILITY_TYPE_OPTIONS}
-            required
-          />
-          <FormField
-            label="Description (optional)"
-            as="textarea"
-            value={form.disability_description}
-            onChange={(v) => update('disability_description', v)}
-            placeholder="Describe the disability briefly if you selected 'Other' or want to add detail"
-          />
-          <FormField
-            label="Doctor / Practitioner Name"
-            value={form.doctor_name}
-            onChange={(v) => update('doctor_name', v)}
-            placeholder="e.g. Dr T. Mokoena"
-          />
-          <FormField
-            label="Clinic / Hospital"
-            value={form.clinic_name}
-            onChange={(v) => update('clinic_name', v)}
-            placeholder="e.g. Queen Mamohato Memorial Hospital"
-          />
-          <FormField
-            label="Date of Diagnosis"
-            type="date"
-            value={form.diagnosis_date}
-            onChange={(v) => update('diagnosis_date', v)}
-          />
-        </div>
+        {/* 2 · EMPLOYMENT (reusable) */}
+        <EmploymentSection
+          value={form.employment}
+          onChange={(employment) => update('employment', employment)}
+        />
 
-        {/* ---------- 3. EMPLOYMENT ---------- */}
+        {/* 3 · PAYOUT ACCOUNT */}
         <div className="module-section">
-          <div className="module-section-title">3 · Employment</div>
-          <p style={{ fontSize: 13, color: '#666', marginTop: 0, marginBottom: 12 }}>
-            This helps us ensure you are not receiving duplicate payments from
-            Finance and Pensions.
-          </p>
-          <FormField
-            label="Where do you work? *"
-            value={form.employer_name}
-            onChange={(v) => update('employer_name', v)}
-            placeholder="e.g. Ministry of Education, Self-employed, Unemployed"
-            required
-          />
-          <FormField
-            label="Employment type *"
-            as="select"
-            value={form.employment_type}
-            onChange={(v) => update('employment_type', v)}
-            options={EMPLOYMENT_TYPES}
-            required
-          />
-          <FormField
-            label="Employee / Payroll number (if any)"
-            value={form.employee_number}
-            onChange={(v) => update('employee_number', v)}
-            placeholder="e.g. MoF-2019-04521"
-          />
-        </div>
-
-        {/* ---------- 4. PAYOUT ACCOUNT ---------- */}
-        <div className="module-section">
-          <div className="module-section-title">4 · Payout account</div>
+          <div className="module-section-title">3 · Payout account</div>
           <PayoutInfoBanner />
-          <FormField
-            label="Bank / Mobile Money"
-            as="select"
-            value={form.bank_name}
-            onChange={handleBankChange}
-            options={BANK_OPTIONS}
-            required
-          />
-          <FormField
-            label="Account Number"
-            value={form.account_number}
-            onChange={(v) => update('account_number', v)}
-            placeholder="e.g. 0123456789"
-            required
-          />
-          <FormField
-            label="Branch Code"
-            value={form.branch_code}
-            onChange={(v) => update('branch_code', v)}
-          />
-          <FormField
-            label="Account Holder Name"
-            value={form.account_holder}
-            onChange={(v) => update('account_holder', v)}
-            required
-          />
-          <FormField
-            label="Account Type"
-            as="select"
-            value={form.account_type}
-            onChange={(v) => update('account_type', v)}
-            options={ACCOUNT_TYPE_OPTIONS}
-          />
-          <PayoutSummary
-            bankName={form.bank_name}
-            accountHolder={form.account_holder}
-            accountNumber={form.account_number}
-            accountType={form.account_type}
-          />
+          <FormField label="Bank / Mobile Money" as="select" value={form.bank_name} onChange={handleBankChange} options={BANK_OPTIONS} required />
+          <FormField label="Account Number" value={form.account_number} onChange={(v) => update('account_number', v)} placeholder="e.g. 0123456789" required />
+          <FormField label="Branch Code" value={form.branch_code} onChange={(v) => update('branch_code', v)} />
+          <FormField label="Account Holder Name" value={form.account_holder} onChange={(v) => update('account_holder', v)} required />
+          <FormField label="Account Type" as="select" value={form.account_type} onChange={(v) => update('account_type', v)} options={ACCOUNT_TYPE_OPTIONS} />
+          <PayoutSummary bankName={form.bank_name} accountHolder={form.account_holder} accountNumber={form.account_number} accountType={form.account_type} />
         </div>
 
-        {/* ---------- 5. DECLARATIONS ---------- */}
+        {/* 4 · CHIEF */}
+        <div className="module-section">
+          <div className="module-section-title">4 · Chief's confirmation (where applicable)</div>
+          <p style={{ fontSize: 13, color: '#666', marginTop: 0, marginBottom: 12 }}>
+            If your Chief has certified this application, enter their details below and upload a photo or scan of the signed letter.
+          </p>
+          <Checkbox checked={form.chief_confirmed} onChange={(v) => update('chief_confirmed', v)} label="My Chief has certified this application" />
+          {form.chief_confirmed && (
+            <div style={{ marginTop: 12 }}>
+              <FormField label="Chief's Full Name *" value={form.chief_name} onChange={(v) => update('chief_name', v)} required />
+              <FormField label="Chief's Confirmation Number" value={form.chief_confirmation_number} onChange={(v) => update('chief_confirmation_number', v)} placeholder="Optional" />
+              <CloudinaryUpload label="Upload the signed Chief's Letter (JPG, PNG, or PDF) *" onUpload={(url) => update('chief_letter_url', url)} />
+            </div>
+          )}
+        </div>
+
+        {/* 5 · DECLARATIONS */}
         <div className="module-section" style={{ borderBottom: 'none', paddingBottom: 0 }}>
           <div className="module-section-title">5 · Declarations</div>
-          <Checkbox
-            checked={form.has_medical_report}
-            onChange={(v) => update('has_medical_report', v)}
-            label="I have a supporting medical report from a registered doctor or clinic."
-          />
-          <Checkbox
-            checked={form.truth_declaration}
-            onChange={(v) => update('truth_declaration', v)}
-            label="I declare that the information provided is true and correct."
-          />
-          <Checkbox
-            checked={form.data_consent}
-            onChange={(v) => update('data_consent', v)}
-            label="I consent to a data verification against Home Affairs and the Ministry of Health."
-          />
+          <Checkbox checked={form.truth_declaration} onChange={(v) => update('truth_declaration', v)} label="I declare that the information provided is true and correct." />
+          <Checkbox checked={form.data_consent} onChange={(v) => update('data_consent', v)} label="I consent to a data verification against Home Affairs, the Ministry of Finance, and RSL." />
         </div>
 
-        <SubmitButton canSubmit={canSubmit} submitting={submitting} label="Submit Application" />
+        <SubmitButton
+          canSubmit={canSubmit && !resubmitting}
+          submitting={submitting || resubmitting}
+          label={
+            blocked ? 'Not eligible'
+            : isEditing ? 'Resubmit Application'
+            : 'Submit Application'
+          }
+        />
       </form>
     </div>
   );
 };
 
 // ============================================================
-// SHARED PIECES (payout UI — pension-specific)
+// DISABILITY GRANT FORM
+// ============================================================
+const DisabilityGrantForm = ({
+  form,
+  setForm,
+  profile,
+  submitting,
+  existingApplication = null,
+  onSubmit,
+  onCancelEdit,
+  onResubmitted,
+}) => {
+  const isEditing = !!existingApplication;
+  const update = (key, value) => setForm({ ...form, [key]: value });
+
+  const [resubmitting, setResubmitting] = useState(false);
+  useAutoFill(profile, form, setForm);
+
+  const handleBankChange = (bankName) => {
+    const bank = BANK_OPTIONS.find((b) => b.value === bankName);
+    setForm({ ...form, bank_name: bankName, branch_code: bank?.branch || '' });
+  };
+
+  const canSubmit =
+    form.disability_type &&
+    form.employment?.employment_type &&
+    form.employment?.employer_name?.trim() &&
+    form.bank_name &&
+    form.account_number.trim() &&
+    form.account_holder.trim() &&
+    form.has_medical_report &&
+    form.truth_declaration &&
+    form.data_consent;
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!canSubmit) return;
+
+    const payload = {
+      scheme: 'Disability Grant',
+      disability: {
+        type: form.disability_type,
+        description: form.disability_description,
+      },
+      medical: {
+        doctor_name: form.doctor_name,
+        clinic_name: form.clinic_name,
+        diagnosis_date: form.diagnosis_date,
+        has_medical_report: form.has_medical_report,
+      },
+      employment: form.employment,
+      payment: {
+        bank_name: form.bank_name,
+        account_number: form.account_number,
+        branch_code: form.branch_code,
+        account_holder: form.account_holder,
+        account_type: form.account_type,
+      },
+      declarations: {
+        truth: form.truth_declaration,
+        data_consent: form.data_consent,
+        declared_at: new Date().toISOString(),
+      },
+    };
+
+    if (isEditing) {
+      setResubmitting(true);
+      try {
+        await resubmitApplication(existingApplication.id, payload);
+        if (onResubmitted) onResubmitted();
+      } catch (err) {
+        alert('Failed to resubmit: ' + err.message);
+      } finally {
+        setResubmitting(false);
+      }
+    } else {
+      await onSubmit('Disability Grant', payload);
+    }
+  };
+
+  return (
+    <div className="module-card">
+      {isEditing && (
+        <div style={{
+          background: '#fff8e0',
+          border: '2px solid #ffcc00',
+          borderRadius: 10,
+          padding: 16,
+          marginBottom: 20,
+        }}>
+          <div style={{ fontSize: 15, fontWeight: 'bold', color: '#7a5a00', marginBottom: 6 }}>
+            ✎ Editing — {existingApplication.application_reference}
+          </div>
+          <div style={{ fontSize: 13, color: '#7a5a00', lineHeight: 1.6, marginBottom: 10 }}>
+            <strong>What Pensions needs:</strong>{' '}
+            {existingApplication.notes || existingApplication.rejection_reason}
+          </div>
+          <button
+            type="button"
+            onClick={onCancelEdit}
+            style={{
+              background: 'transparent',
+              border: '1px solid #7a5a00',
+              color: '#7a5a00',
+              padding: '6px 14px',
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 'bold',
+              cursor: 'pointer',
+            }}
+          >
+            Cancel editing
+          </button>
+        </div>
+      )}
+
+      <div className="module-section-title">
+        {isEditing ? 'Update Disability Grant Application' : 'Disability Grant Application'}
+      </div>
+
+      {!isEditing && (
+        <Alert type="info">
+          The Disability Grant is available to citizens with a certified disability. A medical report
+          from a registered doctor or clinic is required.
+        </Alert>
+      )}
+
+      <form onSubmit={handleSubmit}>
+        {/* 1 · APPLICANT */}
+        <div className="module-section">
+          <div className="module-section-title">1 · Applicant</div>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            <div style={{
+              width: 60, height: 60, borderRadius: '50%',
+              background: 'linear-gradient(135deg, #003366 0%, #0055aa 100%)',
+              color: 'white',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 24, fontWeight: 'bold', flexShrink: 0,
+              overflow: 'hidden',
+            }}>
+              {profile?.photo_url ? (
+                <img src={profile.photo_url} alt={profile?.full_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                (profile?.full_name || '?').charAt(0).toUpperCase()
+              )}
+            </div>
+            <div style={{ flex: 1, minWidth: 240 }}>
+              <div style={{ fontSize: 16, fontWeight: 'bold', color: '#003366' }}>{profile?.full_name}</div>
+              <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>National ID: {profile?.national_id}</div>
+              <div style={{ fontSize: 13, color: '#666' }}>
+                Citizenship: <strong>{getCitizenshipDisplay(profile?.citizenship_status)}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 2 · DISABILITY DETAILS */}
+        <div className="module-section">
+          <div className="module-section-title">2 · Disability details</div>
+          <FormField label="Type of Disability" as="select" value={form.disability_type} onChange={(v) => update('disability_type', v)} options={DISABILITY_TYPE_OPTIONS} required />
+          <FormField label="Description (optional)" as="textarea" value={form.disability_description} onChange={(v) => update('disability_description', v)} placeholder="Briefly describe the disability" />
+          <FormField label="Doctor / Practitioner Name" value={form.doctor_name} onChange={(v) => update('doctor_name', v)} placeholder="e.g. Dr T. Mokoena" />
+          <FormField label="Clinic / Hospital" value={form.clinic_name} onChange={(v) => update('clinic_name', v)} placeholder="e.g. Queen Mamohato Memorial Hospital" />
+          <FormField label="Date of Diagnosis" type="date" value={form.diagnosis_date} onChange={(v) => update('diagnosis_date', v)} />
+        </div>
+
+        {/* 3 · EMPLOYMENT (reusable) */}
+        <EmploymentSection value={form.employment} onChange={(employment) => update('employment', employment)} />
+
+        {/* 4 · PAYOUT ACCOUNT */}
+        <div className="module-section">
+          <div className="module-section-title">4 · Payout account</div>
+          <PayoutInfoBanner />
+          <FormField label="Bank / Mobile Money" as="select" value={form.bank_name} onChange={handleBankChange} options={BANK_OPTIONS} required />
+          <FormField label="Account Number" value={form.account_number} onChange={(v) => update('account_number', v)} placeholder="e.g. 0123456789" required />
+          <FormField label="Branch Code" value={form.branch_code} onChange={(v) => update('branch_code', v)} />
+          <FormField label="Account Holder Name" value={form.account_holder} onChange={(v) => update('account_holder', v)} required />
+          <FormField label="Account Type" as="select" value={form.account_type} onChange={(v) => update('account_type', v)} options={ACCOUNT_TYPE_OPTIONS} />
+          <PayoutSummary bankName={form.bank_name} accountHolder={form.account_holder} accountNumber={form.account_number} accountType={form.account_type} />
+        </div>
+
+        {/* 5 · DECLARATIONS */}
+        <div className="module-section" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+          <div className="module-section-title">5 · Declarations</div>
+          <Checkbox checked={form.has_medical_report} onChange={(v) => update('has_medical_report', v)} label="I have a supporting medical report from a registered doctor or clinic." />
+          <Checkbox checked={form.truth_declaration} onChange={(v) => update('truth_declaration', v)} label="I declare that the information provided is true and correct." />
+          <Checkbox checked={form.data_consent} onChange={(v) => update('data_consent', v)} label="I consent to a data verification against Home Affairs and the Ministry of Health." />
+        </div>
+
+        <SubmitButton
+          canSubmit={canSubmit && !resubmitting}
+          submitting={submitting || resubmitting}
+          label={isEditing ? 'Resubmit Application' : 'Submit Application'}
+        />
+      </form>
+    </div>
+  );
+};
+
+// ============================================================
+// SHARED PIECES
 // ============================================================
 const PayoutInfoBanner = () => (
   <div style={{
@@ -1035,8 +1150,7 @@ const PayoutInfoBanner = () => (
   }}>
     <strong>💰 This is where you will receive your pension payments.</strong>
     <br />
-    Please make sure the account details below are correct. If they are wrong,
-    your pension payments may be delayed or sent to the wrong account.
+    Make sure the account details are correct. Wrong details delay your payments.
   </div>
 );
 
@@ -1062,53 +1176,31 @@ const PayoutSummary = ({ bankName, accountHolder, accountNumber, accountType }) 
       <SummaryRow label="Account Holder" value={accountHolder || '—'} />
       <SummaryRow label="Account Number" value={accountNumber || '—'} mono />
       {!isMobile && <SummaryRow label="Account Type" value={accountType || '—'} />}
-      {isMobile && (
-        <div style={{ marginTop: 10, fontSize: 12, color: '#7a5a00' }}>
-          Mobile money payouts will be sent to the number above. Please make sure
-          the number is registered in the account holder's name.
-        </div>
-      )}
     </div>
   );
 };
 
 const SummaryRow = ({ label, value, mono }) => (
   <div style={{
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '6px 0',
-    gap: 12,
-    fontSize: 13,
-    color: '#333',
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    padding: '6px 0', gap: 12, fontSize: 13, color: '#333',
   }}>
     <span style={{ color: '#666' }}>{label}:</span>
     <span style={{
-      fontWeight: 'bold',
-      color: '#003366',
+      fontWeight: 'bold', color: '#003366',
       fontFamily: mono ? 'monospace' : 'inherit',
-      letterSpacing: mono ? 1 : 0,
-      textAlign: 'right',
-      wordBreak: 'break-all',
+      letterSpacing: mono ? 1 : 0, textAlign: 'right', wordBreak: 'break-all',
     }}>
       {value}
     </span>
   </div>
 );
 
-// ============================================================
-// REUSABLE PIECES
-// ============================================================
 const PensionTile = ({ to, icon, title, desc }) => (
   <Link to={to} style={{ textDecoration: 'none', color: 'inherit' }}>
     <div style={{
-      border: '1px solid #cce0ff',
-      borderRadius: 10,
-      padding: 20,
-      background: 'white',
-      cursor: 'pointer',
-      height: '100%',
-      boxSizing: 'border-box',
+      border: '1px solid #cce0ff', borderRadius: 10, padding: 20, background: 'white',
+      cursor: 'pointer', height: '100%', boxSizing: 'border-box',
       transition: 'transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease',
     }}
       onMouseEnter={(e) => {
@@ -1130,10 +1222,7 @@ const PensionTile = ({ to, icon, title, desc }) => (
 );
 
 const Radio = ({ checked, onChange, label }) => (
-  <label style={{
-    display: 'flex', alignItems: 'center', gap: 8,
-    fontSize: 14, color: '#333', cursor: 'pointer',
-  }}>
+  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: '#333', cursor: 'pointer' }}>
     <input type="radio" checked={checked} onChange={onChange} />
     {label}
   </label>
@@ -1141,21 +1230,8 @@ const Radio = ({ checked, onChange, label }) => (
 
 const Checkbox = ({ checked, onChange, label }) => (
   <div style={{ marginBottom: 12 }}>
-    <label style={{
-      display: 'flex',
-      alignItems: 'flex-start',
-      gap: 10,
-      fontSize: 14,
-      color: '#333',
-      cursor: 'pointer',
-      lineHeight: 1.4,
-    }}>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        style={{ marginTop: 3 }}
-      />
+    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 14, color: '#333', cursor: 'pointer', lineHeight: 1.4 }}>
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} style={{ marginTop: 3 }} />
       <span>{label}</span>
     </label>
   </div>
@@ -1170,12 +1246,8 @@ const SubmitButton = ({ canSubmit, submitting, label = 'Submit Application' }) =
         background: canSubmit && !submitting
           ? 'linear-gradient(135deg, #003366 0%, #0055aa 100%)'
           : '#999',
-        color: 'white',
-        border: 'none',
-        padding: '12px 26px',
-        borderRadius: 999,
-        fontSize: 15,
-        fontWeight: 'bold',
+        color: 'white', border: 'none', padding: '12px 26px',
+        borderRadius: 999, fontSize: 15, fontWeight: 'bold',
         cursor: canSubmit && !submitting ? 'pointer' : 'not-allowed',
         boxShadow: canSubmit && !submitting ? '0 4px 14px rgba(0, 51, 102, 0.25)' : 'none',
         transition: 'transform 0.2s ease, box-shadow 0.2s ease',
@@ -1196,14 +1268,9 @@ const SubmitButton = ({ canSubmit, submitting, label = 'Submit Application' }) =
       {submitting ? 'Submitting...' : label}
     </button>
     <Link to="/pensions" style={{
-      background: 'white',
-      color: '#003366',
-      border: '1px solid #003366',
-      padding: '11px 24px',
-      borderRadius: 999,
-      fontSize: 14,
-      textDecoration: 'none',
-      display: 'inline-block',
+      background: 'white', color: '#003366', border: '1px solid #003366',
+      padding: '11px 24px', borderRadius: 999, fontSize: 14,
+      textDecoration: 'none', display: 'inline-block',
     }}>
       Cancel
     </Link>

@@ -1,306 +1,275 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom'; // Added Link
 import { useAuth } from '../../contexts/AuthContext';
-import { useLanguage } from '../../i18n/LanguageContext';
 import { assetPath } from '../../utils/assetPath';
-import { saveCitizenPhoto, saveCitizenDocument } from '../../firebase/db';
+import { saveCitizenPhoto } from '../../firebase/db';
 import Layout from '../common/Layout';
-import Card from '../common/Card';
-import Badge from '../common/Badge';
-import Alert from '../common/Alert';
 import PhotoUpload from '../common/PhotoUpload';
-import CloudinaryUpload from '../common/CloudinaryUpload';
 import './Dashboard.css';
-
-const DOCUMENT_TYPES = [
-  { value: '', label: '— Select document type —' },
-  { value: 'Birth Certificate', label: 'Birth Certificate (first-time applicants)' },
-  { value: 'Old National ID', label: 'Old National ID (renewal)' },
-  { value: 'Police Report', label: 'Police Report (lost / stolen)' },
-  { value: 'Damaged National ID', label: 'Damaged National ID' },
-  { value: "Chief's Letter", label: "Chief's Letter (proof of residence)" },
-  { value: 'Passport', label: 'Passport' },
-  { value: 'Other', label: 'Other' },
-];
-
-const getInitials = (fullName) => {
-  if (!fullName) return '?';
-  const parts = fullName.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-  return (
-    parts[0].charAt(0).toUpperCase() +
-    parts[parts.length - 1].charAt(0).toUpperCase()
-  );
-};
-
-// Map any stored citizenship value → display label
-// Handles legacy "Citizen", new "Mosotho", and residents.
-const getCitizenshipLabel = (raw) => {
-  const value = (raw || '').toLowerCase();
-  if (value.includes('mosotho') || value.includes('citizen')) return 'Mosotho';
-  if (value.includes('resident')) return 'Resident';
-  return 'Mosotho'; // default for new citizens
-};
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const { t } = useLanguage();
 
   const [photoUrl, setPhotoUrl] = useState(profile?.photo_url || '');
-  const [documentUrl, setDocumentUrl] = useState(profile?.id_document_url || '');
-  const [documentType, setDocumentType] = useState(profile?.id_document_type || '');
-  const [saveMsg, setSaveMsg] = useState('');
-  const [saving, setSaving] = useState(false);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     setPhotoUrl(profile?.photo_url || '');
-    setDocumentUrl(profile?.id_document_url || '');
-    setDocumentType(profile?.id_document_type || '');
   }, [profile]);
 
-  const services = [
-    { nameKey: 'ministry_finance', descKey: 'ministry_finance_desc', route: '/finance', logo: assetPath('/assets/logos/finance.png') },
-    { nameKey: 'ministry_home_affairs', descKey: 'ministry_home_affairs_desc', route: '/home-affairs', logo: assetPath('/assets/logos/home-affairs.png') },
-    { nameKey: 'ministry_traffic', descKey: 'ministry_traffic_desc', route: '/traffic', logo: assetPath('/assets/logos/traffic.png') },
-    { nameKey: 'ministry_police', descKey: 'ministry_police_desc', route: '/police', logo: assetPath('/assets/logos/police.png') },
-    { nameKey: 'ministry_passport', descKey: 'ministry_passport_desc', route: '/passport', logo: assetPath('/assets/logos/passport.png') },
-    { nameKey: 'ministry_pensions', descKey: 'ministry_pensions_desc', route: '/pensions', logo: assetPath('/assets/logos/pensions.png') },
-    { nameKey: 'ministry_access_history', descKey: 'ministry_access_history_desc', route: '/access-history', icon: '🔒' },
+  const departments = [
+    { name: 'Pensions', desc: 'Pension registration, statements and benefits.', path: '/pensions', logo: assetPath('/assets/logos/pensions.png'), bg: '#e0e7ff' },
+    { name: 'Home Affairs', desc: 'Identity & citizenship services.', path: '/home-affairs', logo: assetPath('/assets/logos/home-affairs.png'), bg: '#d1fae5' },
+    { name: 'Finance / RSL', desc: 'Tax clearance & PAYE refunds.', path: '/finance', logo: assetPath('/assets/logos/finance.png'), bg: '#ede9fe' },
+    { name: 'Traffic', desc: 'Licences & traffic fines.', path: '/traffic', logo: assetPath('/assets/logos/traffic.png'), bg: '#ffedd5' },
+    { name: 'Police', desc: 'Clearances & crime reports.', path: '/police', logo: assetPath('/assets/logos/police.png'), bg: '#fee2e2' },
+    { name: 'Passport', desc: 'New passports & renewals.', path: '/passport', logo: assetPath('/assets/logos/passport.png'), bg: '#ccfbf1' },
   ];
 
-  const genderKey = profile?.gender?.toLowerCase() || 'male';
-  const genderLabel = t(genderKey);
-
-  // ✅ FIXED: shows "Mosotho" for both 'Citizen' and 'Mosotho' stored values
-  const citizenshipLabel = getCitizenshipLabel(profile?.citizenship_status);
-
-  const photoMissing = !photoUrl;
-
-  const handleSaveDocument = async () => {
-    if (!documentUrl) {
-      setSaveMsg('Please upload a document first.');
-      return;
-    }
-    if (!documentType) {
-      setSaveMsg('Please select a document type.');
-      return;
-    }
-    setSaving(true);
-    setSaveMsg('');
-    try {
-      await saveCitizenDocument(profile.uid, {
-        document_url: documentUrl,
-        document_type: documentType,
-      });
-      setSaveMsg('✓ Document saved. Home Affairs will see it during verification.');
-    } catch (err) {
-      console.error(err);
-      setSaveMsg(`Error: ${err.message}`);
-    } finally {
-      setSaving(false);
-    }
-  };
+  const citizenshipKey = (profile?.citizenship_status || '').toLowerCase();
+  const citizenshipLabel =
+    citizenshipKey.includes('mosotho') || citizenshipKey.includes('citizen')
+      ? 'Mosotho'
+      : citizenshipKey.includes('resident')
+      ? 'Permanent resident'
+      : 'Mosotho';
 
   return (
-    <Layout title={t('dashboard')}>
-      <div className="dashboard-root">
-        <p className="dashboard-welcome">
-          {t('welcome_back')}, {profile?.full_name?.split(' ')[0] || t('citizen')}.
-        </p>
+    <Layout title="Dashboard">
+      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+        
+        {/* =========================================
+            LEFT COLUMN (Main Content)
+        ========================================= */}
+        <div style={{ flex: '2 1 700px', minWidth: 0 }}>
+          
+          {/* Hero Profile Card */}
+          <div style={{
+            position: 'relative',
+            background: 'white',
+            borderRadius: 16,
+            overflow: 'hidden',
+            marginBottom: 32,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+            minHeight: 240, 
+          }}>
+            
+            {/* Background Image */}
+            <div style={{ 
+              position: 'absolute', 
+              inset: 0, 
+              backgroundImage: `url(${assetPath('/assets/images/better-lesotho.png')})`, 
+              backgroundSize: 'cover', 
+              backgroundPosition: 'center', 
+            }} />
 
-        {/* Profile completeness alert */}
-        {photoMissing && (
-          <div style={{ marginBottom: 20 }}>
-            <Alert type="warning">
-              <strong>Your profile photo is missing.</strong> Uploading a photo will let
-              every government department recognise you instantly. It also speeds up
-              Home Affairs verification.
-            </Alert>
+            {/* White Gradient Overlay */}
+            <div style={{ 
+              position: 'absolute', 
+              inset: 0, 
+              background: 'linear-gradient(90deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0.95) 45%, rgba(255,255,255,0) 100%)' 
+            }} />
+
+            {/* Content */}
+            <div style={{ position: 'relative', padding: 32, display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'flex-start' }}>
+              
+              <PhotoUpload
+                currentUrl={photoUrl}
+                size={100}
+                onUpload={async (url) => {
+                  setPhotoUrl(url);
+                  try {
+                    await saveCitizenPhoto(profile.uid, url);
+                  } catch (err) { console.error(err); }
+                }}
+              />
+
+              <div style={{ flex: 1, minWidth: 280 }}>
+                <div style={{ display: 'inline-block', background: '#d1fae5', color: '#065f46', padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700, marginBottom: 12 }}>
+                  ✓ Verified Citizen
+                </div>
+                <h2 style={{ margin: 0, fontSize: 28, color: '#0f172a', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {profile?.full_name}
+                  <img src={assetPath('/assets/images/flag-lesotho.png')} alt="Lesotho" style={{ height: 22, borderRadius: 2 }} />
+                </h2>
+                <div style={{ color: '#334155', fontSize: 14, marginTop: 6, fontWeight: 600 }}>
+                  National ID: {profile?.national_id}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16, marginTop: 20 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Gender</div>
+                    <div style={{ fontSize: 13, color: '#0f172a', fontWeight: 600, marginTop: 2 }}>{profile?.gender}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Date of Birth</div>
+                    <div style={{ fontSize: 13, color: '#0f172a', fontWeight: 600, marginTop: 2 }}>{profile?.date_of_birth}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Phone Number</div>
+                    <div style={{ fontSize: 13, color: '#0f172a', fontWeight: 600, marginTop: 2 }}>{profile?.phone_number || '—'}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Email</div>
+                    <div style={{ fontSize: 13, color: '#0f172a', fontWeight: 600, marginTop: 2, wordBreak: 'break-all' }}>{profile?.email}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Citizenship</div>
+                    <div style={{ fontSize: 13, color: '#0f172a', fontWeight: 600, marginTop: 2 }}>{citizenshipLabel}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        )}
 
-        {/* Photo upload card */}
-        <div className="profile-card">
-          <Card>
-            <h3 style={{ marginTop: 0, color: '#003366' }}>Profile Photo</h3>
-            <p style={{ fontSize: 13, color: '#666', marginTop: 0 }}>
-              This photo is used across all departments — Home Affairs, Finance, Traffic,
-              Pensions, Police, and Passport. You only upload it once.
-            </p>
-
-            <PhotoUpload
-              label=""
-              currentUrl={photoUrl}
-              onUpload={async (url) => {
-                setPhotoUrl(url);
-                try {
-                  await saveCitizenPhoto(profile.uid, url);
-                } catch (err) {
-                  console.error(err);
-                }
-              }}
-            />
-          </Card>
-        </div>
-
-        {/* Supporting document card */}
-        <div style={{ marginTop: 20 }}>
-          <Card>
-            <h3 style={{ marginTop: 0, color: '#003366' }}>Supporting Document</h3>
-            <p style={{ fontSize: 13, color: '#666', marginTop: 0 }}>
-              Upload one supporting document to speed up your Home Affairs verification.
-              This is optional — if you are a first-time ID applicant, upload your birth
-              certificate. If you are renewing, upload your old ID.
-            </p>
-
-            <div style={{ marginBottom: 16 }}>
-              <label style={{
-                display: 'block',
-                fontSize: 13,
-                fontWeight: 'bold',
-                marginBottom: 6,
-                color: '#333',
-              }}>
-                Document Type
-              </label>
-              <select
-                value={documentType}
-                onChange={(e) => setDocumentType(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: 10,
-                  border: '1px solid #ccc',
-                  borderRadius: 6,
-                  fontSize: 14,
-                  boxSizing: 'border-box',
-                }}
-              >
-                {DOCUMENT_TYPES.map((d) => (
-                  <option key={d.value} value={d.value}>{d.label}</option>
-                ))}
-              </select>
+          {/* Available Services */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 20, color: '#3b82f6' }}>▦</span>
+              <h3 style={{ margin: 0, fontSize: 20, color: '#0f172a', fontWeight: 800 }}>Available Services</h3>
             </div>
-
-            <CloudinaryUpload
-              label="Document File (JPG, PNG, or PDF)"
-              onUpload={(url) => setDocumentUrl(url)}
-            />
-
-            {documentUrl && (
-              <button
-                onClick={handleSaveDocument}
-                disabled={saving}
-                style={{
-                  background: saving ? '#999' : 'linear-gradient(135deg, #003366 0%, #0055aa 100%)',
-                  color: 'white',
-                  border: 'none',
-                  padding: '10px 22px',
-                  borderRadius: 999,
-                  fontSize: 13,
-                  fontWeight: 'bold',
-                  cursor: saving ? 'not-allowed' : 'pointer',
-                  marginTop: 8,
-                  boxShadow: saving ? 'none' : '0 4px 14px rgba(0, 51, 102, 0.25)',
-                }}
-              >
-                {saving ? 'Saving...' : 'Save Document'}
-              </button>
-            )}
-
-            {saveMsg && (
-              <div style={{ marginTop: 12 }}>
-                <Alert type={saveMsg.startsWith('✓') ? 'success' : 'error'}>{saveMsg}</Alert>
-              </div>
-            )}
-          </Card>
-        </div>
-
-        {/* Profile card */}
-        <div style={{ marginTop: 20 }}>
-          <Card>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
-              <div style={{
-                width: 80,
-                height: 80,
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, #003366 0%, #0055aa 100%)',
-                color: 'white',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 30,
-                fontWeight: 'bold',
-                letterSpacing: 2,
-                flexShrink: 0,
-                overflow: 'hidden',
-                boxShadow: '0 4px 16px rgba(0, 51, 102, 0.22)',
-              }}>
-                {photoUrl ? (
-                  <img src={photoUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  getInitials(profile?.full_name)
-                )}
-              </div>
-              <div style={{ flex: 1, minWidth: 260 }}>
-                <Badge color={profile?.verified_by_home_affairs ? 'green' : 'yellow'}>
-                  {profile?.verified_by_home_affairs
-                    ? t('verified_by_home_affairs')
-                    : t('not_verified_by_home_affairs')}
-                </Badge>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  marginTop: 10,
-                  marginBottom: 5,
-                  flexWrap: 'wrap',
-                }}>
-                  <h2 style={{ color: '#003366', margin: 0 }}>{profile?.full_name}</h2>
-                  <img
-                    src={assetPath('/assets/images/flag-lesotho.png')}
-                    alt="Lesotho"
-                    style={{ height: 22, width: 'auto', borderRadius: 3, boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}
-                    onError={(e) => { e.target.style.display = 'none'; }}
-                  />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginTop: 10 }}>
-                  <div><strong>{t('national_id')}:</strong> {profile?.national_id}</div>
-                  <div><strong>{t('date_of_birth')}:</strong> {profile?.date_of_birth}</div>
-                  <div><strong>{t('gender')}:</strong> {genderLabel}</div>
-                  <div><strong>{t('phone_number')}:</strong> {profile?.phone_number || '—'}</div>
-                  <div><strong>{t('email')}:</strong> {profile?.email || '—'}</div>
-                  <div><strong>{t('citizenship')}:</strong> {citizenshipLabel}</div>
-                </div>
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        <h3 className="section-title">{t('available_services')}</h3>
-
-        <div className="services-grid">
-          {services.map((service) => (
-            <button key={service.route} onClick={() => navigate(service.route)} className="service-tile">
-              <div className="service-tile-icon">
-                {service.logo ? (
-                  <img
-                    src={service.logo}
-                    alt={t(service.nameKey)}
-                    className="service-tile-logo"
-                    onError={(e) => { e.target.style.display = 'none'; e.target.parentNode.textContent = '🏛️'; }}
-                  />
-                ) : (
-                  <span className="service-tile-emoji">{service.icon}</span>
-                )}
-              </div>
-              <div className="service-tile-name">{t(service.nameKey)}</div>
-              <div className="service-tile-desc">{t(service.descKey)}</div>
+            <button onClick={() => navigate('/search')} style={{ background: 'transparent', border: '1px solid #cbd5e1', color: '#3b82f6', padding: '6px 16px', borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              View All Services →
             </button>
-          ))}
+          </div>
+          
+          <p style={{ margin: '0 0 24px 0', fontSize: 14, color: '#64748b' }}>
+            Access government services quickly and easily. Select a service below to get started.
+          </p>
+
+          {/* Department Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+            
+            {departments.map((dept, i) => (
+              <button
+                key={dept.name}
+                onClick={() => navigate(dept.path)}
+                style={{
+                  background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20,
+                  display: 'flex', alignItems: 'flex-start', gap: 16, cursor: 'pointer', textAlign: 'left',
+                  transition: 'all 0.2s ease', boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#bfdbfe'; e.currentTarget.style.boxShadow = '0 8px 16px rgba(59, 130, 246, 0.08)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+              >
+                <div style={{ width: 44, height: 44, borderRadius: '50%', background: dept.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <img src={dept.logo} alt={dept.name} style={{ width: 24, height: 24, objectFit: 'contain' }} onError={(e) => { e.target.style.display = 'none'; e.target.parentNode.textContent = '🏛️'; }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <h4 style={{ margin: 0, fontSize: 15, color: '#0f172a', fontWeight: 700 }}>{dept.name}</h4>
+                    <span style={{ color: '#3b82f6', fontSize: 16 }}>→</span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: 12, color: '#64748b', lineHeight: 1.4 }}>{dept.desc}</p>
+                </div>
+              </button>
+            ))}
+
+            {/* Access History */}
+            <button
+              onClick={() => navigate('/access-history')}
+              style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20, display: 'flex', alignItems: 'flex-start', gap: 16, cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s ease', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#bfdbfe'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'translateY(0)'; }}
+            >
+              <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#f1f5f9', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🕒</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <h4 style={{ margin: 0, fontSize: 15, color: '#0f172a', fontWeight: 700 }}>Access History</h4>
+                  <span style={{ color: '#3b82f6', fontSize: 16 }}>→</span>
+                </div>
+                <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>View your service history and past applications.</p>
+              </div>
+            </button>
+
+            {/* More Services */}
+            <button
+              onClick={() => navigate('/search')}
+              style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20, display: 'flex', alignItems: 'flex-start', gap: 16, cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s ease', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#bfdbfe'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'translateY(0)'; }}
+            >
+              <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#f1f5f9', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>▦</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <h4 style={{ margin: 0, fontSize: 15, color: '#0f172a', fontWeight: 700 }}>More Services</h4>
+                  <span style={{ color: '#3b82f6', fontSize: 16 }}>→</span>
+                </div>
+                <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>Explore all government services and ministries.</p>
+              </div>
+            </button>
+
+          </div>
         </div>
+
+        {/* =========================================
+            RIGHT COLUMN (Sidebar)
+        ========================================= */}
+        <div style={{ flex: '1 1 300px', maxWidth: 360 }}>
+          
+          {/* Latest Announcements */}
+          <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e2e8f0', padding: 24, marginBottom: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ margin: 0, fontSize: 16, color: '#0f172a', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ color: '#3b82f6' }}>📢</span> Latest Announcements
+              </h3>
+              <Link to="/announcements" style={{ color: '#3b82f6', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>View All →</Link>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <Link to="/announcements" style={{ textDecoration: 'none', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', marginTop: 6 }}></div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>Tax Filing Deadline Extended</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>The deadline for individual tax returns has been...</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>12 Oct 2025</div>
+                </div>
+              </Link>
+              <Link to="/announcements" style={{ textDecoration: 'none', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', marginTop: 6 }}></div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>New Passport Application Process</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Updated requirements for passport applications...</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>10 Oct 2025</div>
+                </div>
+              </Link>
+              <Link to="/announcements" style={{ textDecoration: 'none', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', marginTop: 6 }}></div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>Public Holiday Notice</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Government offices will be closed on 25 Oct 2025.</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>08 Oct 2025</div>
+                </div>
+              </Link>
+            </div>
+          </div>
+
+          {/* Need Help */}
+          <div style={{ background: '#f0f9ff', borderRadius: 16, border: '1px solid #e0f2fe', padding: 24, marginBottom: 24 }}>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+              <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#3b82f6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>💬</div>
+              <div>
+                <h4 style={{ margin: '0 0 4px 0', fontSize: 15, color: '#0f172a', fontWeight: 700 }}>Need Help?</h4>
+                <p style={{ margin: '0 0 12px 0', fontSize: 12, color: '#475569', lineHeight: 1.4 }}>Visit our help center for FAQs, guides and support contacts.</p>
+                <Link to="/help" style={{ background: '#2563eb', color: 'white', border: 'none', padding: '8px 16px', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'none', display: 'inline-block' }}>
+                  Go to Help Center →
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Promo Banner */}
+          <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', height: 180 }}>
+             <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${assetPath('/assets/images/government-building.jpg')})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(45deg, rgba(11,37,69,0.9) 0%, transparent 100%)' }} />
+             <div style={{ position: 'absolute', bottom: 20, left: 20, right: 20 }}>
+               <div style={{ color: 'white', fontSize: 18, fontWeight: 700, fontStyle: 'italic', lineHeight: 1.2 }}>A Digital Lesotho<br/>for a Brighter Future</div>
+             </div>
+          </div>
+
+        </div>
+
       </div>
     </Layout>
   );

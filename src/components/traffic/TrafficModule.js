@@ -5,10 +5,12 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import {
   submitApplication,
   getMyApplications,
+  resubmitApplication,
   DEPARTMENTS,
   DISTRICTS,
 } from '../../firebase/db';
 import { calculateAge } from '../../firebase/eligibility';
+import useAutoFill from '../../hooks/useAutoFill';
 import Layout from '../common/Layout';
 import Alert from '../common/Alert';
 import Badge from '../common/Badge';
@@ -16,6 +18,7 @@ import Table from '../common/Table';
 import FormField from '../common/FormField';
 import CloudinaryUpload from '../common/CloudinaryUpload';
 import PaymentBlock from '../common/PaymentBlock';
+import RequestedInfoBanner from '../common/RequestedInfoBanner';
 import VerifiedGuard from '../citizen/VerifiedGuard';
 import '../../styles/module.css';
 
@@ -79,8 +82,15 @@ const generatePaymentReference = (prefix = 'PAY-TRF') => {
   return `${prefix}-${year}-${random}`;
 };
 
+const getCitizenshipDisplay = (raw) => {
+  const value = (raw || '').toLowerCase();
+  if (value.includes('mosotho') || value.includes('citizen')) return 'Mosotho';
+  if (value.includes('resident')) return 'Permanent resident';
+  return 'Mosotho';
+};
+
 // ============================================================
-// MAIN
+// MAIN COMPONENT
 // ============================================================
 const TrafficModule = () => {
   const { profile } = useAuth();
@@ -91,6 +101,7 @@ const TrafficModule = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [lastSubmission, setLastSubmission] = useState(null);
+  const [editingApplication, setEditingApplication] = useState(null);
 
   const fetchApplications = async () => {
     if (!profile) return;
@@ -134,6 +145,27 @@ const TrafficModule = () => {
     }
   };
 
+  const handleStartEdit = (app) => {
+    setEditingApplication(app);
+    setMessage('');
+    setLastSubmission(null);
+    if (app.service_type === 'Learner License') setActiveTab('learner');
+    else if (app.service_type === 'Driver License') setActiveTab('driver');
+    else if (app.service_type === 'Roadworthy Certificate') setActiveTab('roadworthy');
+    else if (app.service_type === 'Vehicle Registration') setActiveTab('registration');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingApplication(null);
+  };
+
+  const handleResubmitted = () => {
+    setEditingApplication(null);
+    setActiveTab('dashboard');
+    setMessage('✓ Your updated application has been resubmitted for review.');
+    fetchApplications();
+  };
+
   const statusColor = (s) => {
     if (s === 'approved' || s === 'completed') return 'green';
     if (s === 'rejected' || s === 'cancelled') return 'red';
@@ -149,6 +181,10 @@ const TrafficModule = () => {
     { key: 'registration', label: 'Vehicle Registration' },
     { key: 'accident', label: 'Accident Report' },
   ];
+
+  const needsInfo = applications.filter(
+    (a) => a.status === 'processing' && (a.notes || a.rejection_reason)
+  );
 
   return (
     <VerifiedGuard serviceName="Department of Traffic and Transport">
@@ -203,7 +239,7 @@ const TrafficModule = () => {
                   </div>
                 </div>
                 <p style={{ color: '#666', fontSize: 13, margin: 0 }}>
-                  Pay <strong>M {lastSubmission.amount.toLocaleString()}</strong> at any of the listed banks.
+                  Pay <strong>M {lastSubmission.amount.toLocaleString()}</strong> at any listed bank.
                   Collect at <strong>{lastSubmission.collectionBranch}</strong>.
                 </p>
               </div>
@@ -211,45 +247,100 @@ const TrafficModule = () => {
           )}
 
           {activeTab === 'dashboard' && (
-            <div className="module-card">
-              <div className="module-section-title">My Traffic Applications</div>
-              <Table
-                headers={['Reference', 'Service', 'Status', 'Submitted', 'Action']}
-                rows={applications.map((a) => [
-                  a.application_reference,
-                  a.service_type,
-                  <Badge color={statusColor(a.status)}>{t(a.status)}</Badge>,
-                  a.submitted_at?.toDate?.().toLocaleDateString() || '—',
-                  a.status === 'approved' || a.status === 'completed' ? (
-                    <Link
-                      to={`/certificate/${a.application_reference}`}
-                      style={{ color: '#003366', fontWeight: 'bold', textDecoration: 'underline', fontSize: 13 }}
-                    >
-                      View Document
-                    </Link>
-                  ) : (
-                    <span style={{ color: '#999', fontSize: 12 }}>—</span>
-                  ),
-                ])}
-                emptyMessage={t('no_applications_yet')}
-              />
-            </div>
+            <>
+              {needsInfo.map((a) => (
+                <RequestedInfoBanner
+                  key={a.id}
+                  application={a}
+                  onEdit={() => handleStartEdit(a)}
+                />
+              ))}
+
+              <div className="module-card">
+                <div className="module-section-title">My Traffic Applications</div>
+                <Table
+                  headers={['Reference', 'Service', 'Status', 'Submitted', 'Action']}
+                  rows={applications.map((a) => [
+                    a.application_reference,
+                    a.service_type,
+                    <Badge color={statusColor(a.status)}>{a.status}</Badge>,
+                    a.submitted_at?.toDate?.().toLocaleDateString() || '—',
+                    a.status === 'processing' && (a.notes || a.rejection_reason) ? (
+                      <button
+                        onClick={() => handleStartEdit(a)}
+                        style={{
+                          background: 'linear-gradient(135deg, #ffcc00 0%, #ff9900 100%)',
+                          color: '#003366',
+                          border: 'none',
+                          padding: '6px 14px',
+                          borderRadius: 999,
+                          fontSize: 12,
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 8px rgba(255, 153, 0, 0.35)',
+                        }}
+                      >
+                        ✎ Edit & Resubmit
+                      </button>
+                    ) : a.status === 'approved' || a.status === 'completed' ? (
+                      <Link
+                        to={`/certificate/${a.application_reference}`}
+                        style={{ color: '#003366', fontWeight: 'bold', textDecoration: 'underline', fontSize: 13 }}
+                      >
+                        View Document
+                      </Link>
+                    ) : (
+                      <span style={{ color: '#999', fontSize: 12 }}>—</span>
+                    ),
+                  ])}
+                  emptyMessage="No applications yet."
+                />
+              </div>
+            </>
           )}
 
           {activeTab === 'learner' && (
-            <LearnerLicenseForm profile={profile} submitting={loading} onSubmit={submit} />
+            <LearnerLicenseForm
+              profile={profile}
+              submitting={loading}
+              existingApplication={editingApplication?.service_type === 'Learner License' ? editingApplication : null}
+              onSubmit={submit}
+              onCancelEdit={handleCancelEdit}
+              onResubmitted={handleResubmitted}
+            />
           )}
 
           {activeTab === 'driver' && (
-            <DriverLicenseForm profile={profile} submitting={loading} onSubmit={submit} />
+            <DriverLicenseForm
+              profile={profile}
+              submitting={loading}
+              existingApplication={editingApplication?.service_type === 'Driver License' ? editingApplication : null}
+              onSubmit={submit}
+              onCancelEdit={handleCancelEdit}
+              onResubmitted={handleResubmitted}
+            />
           )}
 
           {activeTab === 'roadworthy' && (
-            <RoadworthyForm profile={profile} submitting={loading} onSubmit={submit} />
+            <RoadworthyForm
+              profile={profile}
+              submitting={loading}
+              existingApplication={editingApplication?.service_type === 'Roadworthy Certificate' ? editingApplication : null}
+              onSubmit={submit}
+              onCancelEdit={handleCancelEdit}
+              onResubmitted={handleResubmitted}
+            />
           )}
 
           {activeTab === 'registration' && (
-            <VehicleRegistrationForm profile={profile} submitting={loading} onSubmit={submit} />
+            <VehicleRegistrationForm
+              profile={profile}
+              submitting={loading}
+              existingApplication={editingApplication?.service_type === 'Vehicle Registration' ? editingApplication : null}
+              onSubmit={submit}
+              onCancelEdit={handleCancelEdit}
+              onResubmitted={handleResubmitted}
+            />
           )}
 
           {activeTab === 'accident' && <AccidentInfoPanel />}
@@ -262,19 +353,33 @@ const TrafficModule = () => {
 // ============================================================
 // LEARNER LICENSE FORM
 // ============================================================
-const LearnerLicenseForm = ({ profile, submitting, onSubmit }) => {
+const LearnerLicenseForm = ({
+  profile,
+  submitting,
+  existingApplication = null,
+  onSubmit,
+  onCancelEdit,
+  onResubmitted,
+}) => {
+  const isEditing = !!existingApplication;
+  const existingData = existingApplication?.application_data || {};
   const age = calculateAge(profile?.date_of_birth);
 
   const [form, setForm] = useState({
-    vehicle_type: 'Standard Car',
-    bank_name: '',
-    collection_branch: 'Maseru',
+    vehicle_type: existingData.vehicle_type || 'Standard Car',
+    bank_name: existingData.payment?.bank_name || '',
+    collection_branch: existingData.collection_branch || 'Maseru',
   });
   const [uploads, setUploads] = useState({
-    eye_test: null,
-    photos: null,
+    eye_test: existingData.documents_uploaded?.eye_test || null,
+    photos: existingData.documents_uploaded?.photos || null,
   });
-  const [paymentRef] = useState(() => generatePaymentReference());
+  const [paymentRef] = useState(
+    () => existingData.payment?.reference || generatePaymentReference()
+  );
+  const [resubmitting, setResubmitting] = useState(false);
+
+  useAutoFill(profile, form, setForm);
 
   const update = (k, v) => setForm({ ...form, [k]: v });
   const setUpload = (k, v) => setUploads({ ...uploads, [k]: v });
@@ -283,44 +388,57 @@ const LearnerLicenseForm = ({ profile, submitting, onSubmit }) => {
   const eligible = age !== null && vehicleMeta && age >= vehicleMeta.minAge;
 
   const canSubmit =
-    form.vehicle_type &&
-    form.bank_name &&
-    uploads.eye_test &&
-    uploads.photos &&
-    eligible;
+    form.vehicle_type && form.bank_name && uploads.eye_test && uploads.photos && eligible;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!canSubmit) return;
-    await onSubmit('Learner License', {
+
+    const payload = {
       vehicle_type: form.vehicle_type,
       collection_branch: form.collection_branch,
-      documents_uploaded: {
-        eye_test: uploads.eye_test,
-        photos: uploads.photos,
+      documents_uploaded: { eye_test: uploads.eye_test, photos: uploads.photos },
+      payment: {
+        reference: paymentRef,
+        bank: form.bank_name,
+        status: existingData.payment?.status || 'awaiting_payment',
       },
-      payment: { reference: paymentRef, bank: form.bank_name, status: 'awaiting_payment' },
       fees: { base: LEARNER_FEE, total: LEARNER_FEE },
-    });
+    };
+
+    if (isEditing) {
+      setResubmitting(true);
+      try {
+        await resubmitApplication(existingApplication.id, payload);
+        if (onResubmitted) onResubmitted();
+      } catch (err) {
+        alert('Failed to resubmit: ' + err.message);
+      } finally {
+        setResubmitting(false);
+      }
+    } else {
+      await onSubmit('Learner License', payload);
+    }
   };
 
   return (
     <div className="module-card">
-      <div className="module-section-title">Learner License Application</div>
+      {isEditing && <EditBanner application={existingApplication} onCancel={onCancelEdit} />}
 
-      <Alert type="info">
-        Motorcycle: 16+ · Standard car: 18+ · Heavy vehicle: 21+. Fee: M {LEARNER_FEE}.
-      </Alert>
+      <div className="module-section-title">
+        {isEditing ? 'Update Learner License Application' : 'Learner License Application'}
+      </div>
+
+      {!isEditing && (
+        <Alert type="info">
+          Motorcycle: 16+ · Standard car: 18+ · Heavy vehicle: 21+. Fee: M {LEARNER_FEE}.
+        </Alert>
+      )}
 
       <form onSubmit={handleSubmit}>
         <div className="module-section">
           <div className="module-section-title">1 · Applicant</div>
-          <div style={{ fontSize: 16, fontWeight: 'bold', color: '#003366' }}>
-            {profile?.full_name}
-          </div>
-          <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>
-            National ID: {profile?.national_id} · Age: <strong>{age}</strong>
-          </div>
+          <ApplicantCard profile={profile} age={age} />
         </div>
 
         <div className="module-section">
@@ -334,21 +452,9 @@ const LearnerLicenseForm = ({ profile, submitting, onSubmit }) => {
             required
           />
           {eligible ? (
-            <div style={{
-              marginTop: 8, padding: 12,
-              background: '#e6f4ea', color: '#006600',
-              border: '1px solid #a8d5b8', borderRadius: 6,
-              fontSize: 13, fontWeight: 'bold',
-            }}>
-              ✓ You are eligible (age {age})
-            </div>
+            <div style={eligibleStyle}>✓ You are eligible (age {age})</div>
           ) : (
-            <div style={{
-              marginTop: 8, padding: 12,
-              background: '#fff3cd', color: '#856404',
-              border: '1px solid #ffe08a', borderRadius: 6,
-              fontSize: 13, fontWeight: 'bold',
-            }}>
+            <div style={notEligibleStyle}>
               You must be {vehicleMeta?.minAge}+ for this vehicle type. You are {age}.
             </div>
           )}
@@ -392,7 +498,11 @@ const LearnerLicenseForm = ({ profile, submitting, onSubmit }) => {
           />
         </div>
 
-        <SubmitButton canSubmit={canSubmit} submitting={submitting} label="Apply for Learner License" />
+        <SubmitButton
+          canSubmit={canSubmit && !resubmitting}
+          submitting={submitting || resubmitting}
+          label={isEditing ? 'Resubmit Application' : 'Apply for Learner License'}
+        />
       </form>
     </div>
   );
@@ -401,19 +511,34 @@ const LearnerLicenseForm = ({ profile, submitting, onSubmit }) => {
 // ============================================================
 // DRIVER LICENSE FORM
 // ============================================================
-const DriverLicenseForm = ({ profile, submitting, onSubmit }) => {
+const DriverLicenseForm = ({
+  profile,
+  submitting,
+  existingApplication = null,
+  onSubmit,
+  onCancelEdit,
+  onResubmitted,
+}) => {
+  const isEditing = !!existingApplication;
+  const existingData = existingApplication?.application_data || {};
+
   const [form, setForm] = useState({
-    application_type: 'New',
-    licence_code: '',
-    transmission: 'Manual',
-    bank_name: '',
-    collection_branch: 'Maseru',
+    application_type: existingData.application_type || 'New',
+    licence_code: existingData.licence_code || '',
+    transmission: existingData.transmission || 'Manual',
+    bank_name: existingData.payment?.bank_name || '',
+    collection_branch: existingData.collection_branch || 'Maseru',
   });
   const [uploads, setUploads] = useState({
-    learner_license: null,
-    certificate_of_competence: null,
+    learner_license: existingData.documents_uploaded?.learner_license || null,
+    certificate_of_competence: existingData.documents_uploaded?.certificate_of_competence || null,
   });
-  const [paymentRef] = useState(() => generatePaymentReference());
+  const [paymentRef] = useState(
+    () => existingData.payment?.reference || generatePaymentReference()
+  );
+  const [resubmitting, setResubmitting] = useState(false);
+
+  useAutoFill(profile, form, setForm);
 
   const update = (k, v) => setForm({ ...form, [k]: v });
   const setUpload = (k, v) => setUploads({ ...uploads, [k]: v });
@@ -421,15 +546,13 @@ const DriverLicenseForm = ({ profile, submitting, onSubmit }) => {
   const fee = form.application_type === 'New' ? DRIVER_NEW_FEE : DRIVER_RENEWAL_FEE;
 
   const canSubmit =
-    form.licence_code &&
-    form.bank_name &&
-    uploads.learner_license &&
-    uploads.certificate_of_competence;
+    form.licence_code && form.bank_name && uploads.learner_license && uploads.certificate_of_competence;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!canSubmit) return;
-    await onSubmit('Driver License', {
+
+    const payload = {
       application_type: form.application_type,
       licence_code: form.licence_code,
       transmission: form.transmission,
@@ -438,28 +561,47 @@ const DriverLicenseForm = ({ profile, submitting, onSubmit }) => {
         learner_license: uploads.learner_license,
         certificate_of_competence: uploads.certificate_of_competence,
       },
-      payment: { reference: paymentRef, bank: form.bank_name, status: 'awaiting_payment' },
+      payment: {
+        reference: paymentRef,
+        bank: form.bank_name,
+        status: existingData.payment?.status || 'awaiting_payment',
+      },
       fees: { base: fee, total: fee },
-    });
+    };
+
+    if (isEditing) {
+      setResubmitting(true);
+      try {
+        await resubmitApplication(existingApplication.id, payload);
+        if (onResubmitted) onResubmitted();
+      } catch (err) {
+        alert('Failed to resubmit: ' + err.message);
+      } finally {
+        setResubmitting(false);
+      }
+    } else {
+      await onSubmit('Driver License', payload);
+    }
   };
 
   return (
     <div className="module-card">
-      <div className="module-section-title">Driver's License Application</div>
+      {isEditing && <EditBanner application={existingApplication} onCancel={onCancelEdit} />}
 
-      <Alert type="info">
-        New licence: M {DRIVER_NEW_FEE} · Renewal: M {DRIVER_RENEWAL_FEE}. You must hold a valid Learner License and pass the Certificate of Competence test.
-      </Alert>
+      <div className="module-section-title">
+        {isEditing ? 'Update Driver License Application' : "Driver's License Application"}
+      </div>
+
+      {!isEditing && (
+        <Alert type="info">
+          New licence: M {DRIVER_NEW_FEE} · Renewal: M {DRIVER_RENEWAL_FEE}. You must hold a valid Learner License and pass the Certificate of Competence test.
+        </Alert>
+      )}
 
       <form onSubmit={handleSubmit}>
         <div className="module-section">
           <div className="module-section-title">1 · Applicant</div>
-          <div style={{ fontSize: 16, fontWeight: 'bold', color: '#003366' }}>
-            {profile?.full_name}
-          </div>
-          <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>
-            National ID: {profile?.national_id}
-          </div>
+          <ApplicantCard profile={profile} />
         </div>
 
         <div className="module-section">
@@ -480,21 +622,8 @@ const DriverLicenseForm = ({ profile, submitting, onSubmit }) => {
 
         <div className="module-section">
           <div className="module-section-title">3 · License details</div>
-          <FormField
-            label="License Code *"
-            as="select"
-            value={form.licence_code}
-            onChange={(v) => update('licence_code', v)}
-            options={LICENCE_CODES}
-            required
-          />
-          <FormField
-            label="Transmission"
-            as="select"
-            value={form.transmission}
-            onChange={(v) => update('transmission', v)}
-            options={TRANSMISSION}
-          />
+          <FormField label="License Code *" as="select" value={form.licence_code} onChange={(v) => update('licence_code', v)} options={LICENCE_CODES} required />
+          <FormField label="Transmission" as="select" value={form.transmission} onChange={(v) => update('transmission', v)} options={TRANSMISSION} />
         </div>
 
         <div className="module-section">
@@ -502,14 +631,8 @@ const DriverLicenseForm = ({ profile, submitting, onSubmit }) => {
           <p style={{ fontSize: 13, color: '#666', marginTop: 0, marginBottom: 12 }}>
             Take clear photos of each document and upload them below. JPG, PNG, or PDF.
           </p>
-          <CloudinaryUpload
-            label="Valid Learner License *"
-            onUpload={(url) => setUpload('learner_license', url)}
-          />
-          <CloudinaryUpload
-            label="Certificate of Competence *"
-            onUpload={(url) => setUpload('certificate_of_competence', url)}
-          />
+          <CloudinaryUpload label="Valid Learner License *" onUpload={(url) => setUpload('learner_license', url)} />
+          <CloudinaryUpload label="Certificate of Competence *" onUpload={(url) => setUpload('certificate_of_competence', url)} />
         </div>
 
         <div className="module-section">
@@ -535,7 +658,11 @@ const DriverLicenseForm = ({ profile, submitting, onSubmit }) => {
           />
         </div>
 
-        <SubmitButton canSubmit={canSubmit} submitting={submitting} label="Apply for Driver License" />
+        <SubmitButton
+          canSubmit={canSubmit && !resubmitting}
+          submitting={submitting || resubmitting}
+          label={isEditing ? 'Resubmit Application' : 'Apply for Driver License'}
+        />
       </form>
     </div>
   );
@@ -544,31 +671,44 @@ const DriverLicenseForm = ({ profile, submitting, onSubmit }) => {
 // ============================================================
 // ROADWORTHY FORM
 // ============================================================
-const RoadworthyForm = ({ profile, submitting, onSubmit }) => {
+const RoadworthyForm = ({
+  profile,
+  submitting,
+  existingApplication = null,
+  onSubmit,
+  onCancelEdit,
+  onResubmitted,
+}) => {
+  const isEditing = !!existingApplication;
+  const existingData = existingApplication?.application_data || {};
+  const existingVehicle = existingData.vehicle || {};
+
   const [form, setForm] = useState({
-    plate_number: '',
-    make: '',
-    model: '',
-    year: '',
-    vin: '',
-    inspection_branch: 'Maseru',
-    bank_name: '',
+    plate_number: existingVehicle.plate_number || '',
+    make: existingVehicle.make || '',
+    model: existingVehicle.model || '',
+    year: existingVehicle.year || '',
+    vin: existingVehicle.vin || '',
+    inspection_branch: existingData.inspection_branch || 'Maseru',
+    bank_name: existingData.payment?.bank_name || '',
   });
-  const [paymentRef] = useState(() => generatePaymentReference());
+  const [paymentRef] = useState(
+    () => existingData.payment?.reference || generatePaymentReference()
+  );
+  const [resubmitting, setResubmitting] = useState(false);
+
+  useAutoFill(profile, form, setForm);
 
   const update = (k, v) => setForm({ ...form, [k]: v });
 
   const canSubmit =
-    form.plate_number.trim() &&
-    form.make.trim() &&
-    form.model.trim() &&
-    form.year &&
-    form.bank_name;
+    form.plate_number.trim() && form.make.trim() && form.model.trim() && form.year && form.bank_name;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!canSubmit) return;
-    await onSubmit('Roadworthy Certificate', {
+
+    const payload = {
       vehicle: {
         plate_number: form.plate_number.toUpperCase(),
         make: form.make,
@@ -578,67 +718,56 @@ const RoadworthyForm = ({ profile, submitting, onSubmit }) => {
       },
       inspection_branch: form.inspection_branch,
       collection_branch: form.inspection_branch,
-      payment: { reference: paymentRef, bank: form.bank_name, status: 'awaiting_payment' },
+      payment: {
+        reference: paymentRef,
+        bank: form.bank_name,
+        status: existingData.payment?.status || 'awaiting_payment',
+      },
       fees: { base: ROADWORTHY_FEE, total: ROADWORTHY_FEE },
-    });
+    };
+
+    if (isEditing) {
+      setResubmitting(true);
+      try {
+        await resubmitApplication(existingApplication.id, payload);
+        if (onResubmitted) onResubmitted();
+      } catch (err) {
+        alert('Failed to resubmit: ' + err.message);
+      } finally {
+        setResubmitting(false);
+      }
+    } else {
+      await onSubmit('Roadworthy Certificate', payload);
+    }
   };
 
   return (
     <div className="module-card">
-      <div className="module-section-title">Roadworthy Certificate Application</div>
+      {isEditing && <EditBanner application={existingApplication} onCancel={onCancelEdit} />}
 
-      <Alert type="info">
-        Fee: M {ROADWORTHY_FEE}. The certificate is valid for 6 months. You will need to bring the vehicle for physical inspection.
-      </Alert>
+      <div className="module-section-title">
+        {isEditing ? 'Update Roadworthy Application' : 'Roadworthy Certificate Application'}
+      </div>
+
+      {!isEditing && (
+        <Alert type="info">
+          Fee: M {ROADWORTHY_FEE}. The certificate is valid for 6 months. You will need to bring the vehicle for physical inspection.
+        </Alert>
+      )}
 
       <form onSubmit={handleSubmit}>
         <div className="module-section">
           <div className="module-section-title">1 · Applicant</div>
-          <div style={{ fontSize: 16, fontWeight: 'bold', color: '#003366' }}>
-            {profile?.full_name}
-          </div>
-          <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>
-            National ID: {profile?.national_id}
-          </div>
+          <ApplicantCard profile={profile} />
         </div>
 
         <div className="module-section">
           <div className="module-section-title">2 · Vehicle details</div>
-          <FormField
-            label="Plate Number *"
-            value={form.plate_number}
-            onChange={(v) => update('plate_number', v.toUpperCase())}
-            placeholder="e.g. A1234"
-            required
-          />
-          <FormField
-            label="Make *"
-            value={form.make}
-            onChange={(v) => update('make', v)}
-            placeholder="e.g. Toyota"
-            required
-          />
-          <FormField
-            label="Model *"
-            value={form.model}
-            onChange={(v) => update('model', v)}
-            placeholder="e.g. Hilux"
-            required
-          />
-          <FormField
-            label="Year *"
-            type="number"
-            value={form.year}
-            onChange={(v) => update('year', v)}
-            placeholder="e.g. 2018"
-            required
-          />
-          <FormField
-            label="Chassis / VIN"
-            value={form.vin}
-            onChange={(v) => update('vin', v.toUpperCase())}
-            placeholder="e.g. AHTFR22G30..."
-          />
+          <FormField label="Plate Number *" value={form.plate_number} onChange={(v) => update('plate_number', v.toUpperCase())} placeholder="e.g. A1234" required />
+          <FormField label="Make *" value={form.make} onChange={(v) => update('make', v)} placeholder="e.g. Toyota" required />
+          <FormField label="Model *" value={form.model} onChange={(v) => update('model', v)} placeholder="e.g. Hilux" required />
+          <FormField label="Year *" type="number" value={form.year} onChange={(v) => update('year', v)} placeholder="e.g. 2018" required />
+          <FormField label="Chassis / VIN" value={form.vin} onChange={(v) => update('vin', v.toUpperCase())} placeholder="e.g. AHTFR22G30..." />
         </div>
 
         <div className="module-section">
@@ -664,7 +793,11 @@ const RoadworthyForm = ({ profile, submitting, onSubmit }) => {
           />
         </div>
 
-        <SubmitButton canSubmit={canSubmit} submitting={submitting} label="Apply for Roadworthy" />
+        <SubmitButton
+          canSubmit={canSubmit && !resubmitting}
+          submitting={submitting || resubmitting}
+          label={isEditing ? 'Resubmit Application' : 'Apply for Roadworthy'}
+        />
       </form>
     </div>
   );
@@ -673,26 +806,43 @@ const RoadworthyForm = ({ profile, submitting, onSubmit }) => {
 // ============================================================
 // VEHICLE REGISTRATION FORM
 // ============================================================
-const VehicleRegistrationForm = ({ profile, submitting, onSubmit }) => {
+const VehicleRegistrationForm = ({
+  profile,
+  submitting,
+  existingApplication = null,
+  onSubmit,
+  onCancelEdit,
+  onResubmitted,
+}) => {
+  const isEditing = !!existingApplication;
+  const existingData = existingApplication?.application_data || {};
+  const existingVehicle = existingData.vehicle || {};
+  const existingUploads = existingData.documents_uploaded || {};
+
   const [form, setForm] = useState({
-    registration_type: 'First Registration',
-    plate_number: '',
-    year: '',
-    make: '',
-    model: '',
-    vehicle_class: '',
-    colour: '',
-    chassis_number: '',
-    engine_number: '',
-    bank_name: '',
-    collection_branch: 'Maseru',
+    registration_type: existingData.registration_type || 'First Registration',
+    plate_number: existingVehicle.plate_number || '',
+    year: existingVehicle.year || '',
+    make: existingVehicle.make || '',
+    model: existingVehicle.model || '',
+    vehicle_class: existingVehicle.vehicle_class || '',
+    colour: existingVehicle.colour || '',
+    chassis_number: existingVehicle.chassis_number || '',
+    engine_number: existingVehicle.engine_number || '',
+    bank_name: existingData.payment?.bank_name || '',
+    collection_branch: existingData.collection_branch || 'Maseru',
   });
   const [uploads, setUploads] = useState({
-    customs_clearance: null,
-    vat_clearance: null,
-    proof_of_purchase: null,
+    customs_clearance: existingUploads.customs_clearance || null,
+    vat_clearance: existingUploads.vat_clearance || null,
+    proof_of_purchase: existingUploads.proof_of_purchase || null,
   });
-  const [paymentRef] = useState(() => generatePaymentReference());
+  const [paymentRef] = useState(
+    () => existingData.payment?.reference || generatePaymentReference()
+  );
+  const [resubmitting, setResubmitting] = useState(false);
+
+  useAutoFill(profile, form, setForm);
 
   const update = (k, v) => setForm({ ...form, [k]: v });
   const setUpload = (k, v) => setUploads({ ...uploads, [k]: v });
@@ -712,7 +862,8 @@ const VehicleRegistrationForm = ({ profile, submitting, onSubmit }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!canSubmit) return;
-    await onSubmit('Vehicle Registration', {
+
+    const payload = {
       registration_type: form.registration_type,
       vehicle: {
         plate_number: form.plate_number.toUpperCase(),
@@ -730,28 +881,47 @@ const VehicleRegistrationForm = ({ profile, submitting, onSubmit }) => {
         vat_clearance: uploads.vat_clearance,
         proof_of_purchase: uploads.proof_of_purchase,
       },
-      payment: { reference: paymentRef, bank: form.bank_name, status: 'awaiting_payment' },
+      payment: {
+        reference: paymentRef,
+        bank: form.bank_name,
+        status: existingData.payment?.status || 'awaiting_payment',
+      },
       fees: { base: fee, total: fee },
-    });
+    };
+
+    if (isEditing) {
+      setResubmitting(true);
+      try {
+        await resubmitApplication(existingApplication.id, payload);
+        if (onResubmitted) onResubmitted();
+      } catch (err) {
+        alert('Failed to resubmit: ' + err.message);
+      } finally {
+        setResubmitting(false);
+      }
+    } else {
+      await onSubmit('Vehicle Registration', payload);
+    }
   };
 
   return (
     <div className="module-card">
-      <div className="module-section-title">Vehicle Registration</div>
+      {isEditing && <EditBanner application={existingApplication} onCancel={onCancelEdit} />}
 
-      <Alert type="info">
-        First registration: M {REGISTRATION_NEW_FEE} · Change of ownership: M {REGISTRATION_TRANSFER_FEE} · Re-registration: M {REGISTRATION_REREG_FEE}.
-      </Alert>
+      <div className="module-section-title">
+        {isEditing ? 'Update Vehicle Registration' : 'Vehicle Registration'}
+      </div>
+
+      {!isEditing && (
+        <Alert type="info">
+          First registration: M {REGISTRATION_NEW_FEE} · Change of ownership: M {REGISTRATION_TRANSFER_FEE} · Re-registration: M {REGISTRATION_REREG_FEE}.
+        </Alert>
+      )}
 
       <form onSubmit={handleSubmit}>
         <div className="module-section">
           <div className="module-section-title">1 · Applicant</div>
-          <div style={{ fontSize: 16, fontWeight: 'bold', color: '#003366' }}>
-            {profile?.full_name}
-          </div>
-          <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>
-            National ID: {profile?.national_id}
-          </div>
+          <ApplicantCard profile={profile} />
         </div>
 
         <div className="module-section">
@@ -768,60 +938,14 @@ const VehicleRegistrationForm = ({ profile, submitting, onSubmit }) => {
 
         <div className="module-section">
           <div className="module-section-title">3 · Vehicle details</div>
-          <FormField
-            label="Plate Number *"
-            value={form.plate_number}
-            onChange={(v) => update('plate_number', v.toUpperCase())}
-            placeholder="e.g. A1234"
-            required
-          />
-          <FormField
-            label="Year *"
-            type="number"
-            value={form.year}
-            onChange={(v) => update('year', v)}
-            placeholder="e.g. 2022"
-            required
-          />
-          <FormField
-            label="Make *"
-            value={form.make}
-            onChange={(v) => update('make', v)}
-            placeholder="e.g. Toyota"
-            required
-          />
-          <FormField
-            label="Model *"
-            value={form.model}
-            onChange={(v) => update('model', v)}
-            placeholder="e.g. Corolla"
-            required
-          />
-          <FormField
-            label="Vehicle Class"
-            as="select"
-            value={form.vehicle_class}
-            onChange={(v) => update('vehicle_class', v)}
-            options={VEHICLE_CLASSES}
-          />
-          <FormField
-            label="Colour"
-            value={form.colour}
-            onChange={(v) => update('colour', v)}
-            placeholder="e.g. White"
-          />
-          <FormField
-            label="Chassis Number *"
-            value={form.chassis_number}
-            onChange={(v) => update('chassis_number', v.toUpperCase())}
-            placeholder="VIN"
-            required
-          />
-          <FormField
-            label="Engine Number"
-            value={form.engine_number}
-            onChange={(v) => update('engine_number', v)}
-          />
+          <FormField label="Plate Number *" value={form.plate_number} onChange={(v) => update('plate_number', v.toUpperCase())} placeholder="e.g. A1234" required />
+          <FormField label="Year *" type="number" value={form.year} onChange={(v) => update('year', v)} placeholder="e.g. 2022" required />
+          <FormField label="Make *" value={form.make} onChange={(v) => update('make', v)} placeholder="e.g. Toyota" required />
+          <FormField label="Model *" value={form.model} onChange={(v) => update('model', v)} placeholder="e.g. Corolla" required />
+          <FormField label="Vehicle Class" as="select" value={form.vehicle_class} onChange={(v) => update('vehicle_class', v)} options={VEHICLE_CLASSES} />
+          <FormField label="Colour" value={form.colour} onChange={(v) => update('colour', v)} placeholder="e.g. White" />
+          <FormField label="Chassis Number *" value={form.chassis_number} onChange={(v) => update('chassis_number', v.toUpperCase())} placeholder="VIN" required />
+          <FormField label="Engine Number" value={form.engine_number} onChange={(v) => update('engine_number', v)} />
         </div>
 
         <div className="module-section">
@@ -829,18 +953,9 @@ const VehicleRegistrationForm = ({ profile, submitting, onSubmit }) => {
           <p style={{ fontSize: 13, color: '#666', marginTop: 0, marginBottom: 12 }}>
             Take clear photos of each document and upload them below. JPG, PNG, or PDF.
           </p>
-          <CloudinaryUpload
-            label="Customs Clearance (for imported vehicles)"
-            onUpload={(url) => setUpload('customs_clearance', url)}
-          />
-          <CloudinaryUpload
-            label="VAT Clearance from RSL"
-            onUpload={(url) => setUpload('vat_clearance', url)}
-          />
-          <CloudinaryUpload
-            label="Proof of Purchase / Invoice *"
-            onUpload={(url) => setUpload('proof_of_purchase', url)}
-          />
+          <CloudinaryUpload label="Customs Clearance (for imported vehicles)" onUpload={(url) => setUpload('customs_clearance', url)} />
+          <CloudinaryUpload label="VAT Clearance from RSL" onUpload={(url) => setUpload('vat_clearance', url)} />
+          <CloudinaryUpload label="Proof of Purchase / Invoice *" onUpload={(url) => setUpload('proof_of_purchase', url)} />
         </div>
 
         <div className="module-section">
@@ -866,7 +981,11 @@ const VehicleRegistrationForm = ({ profile, submitting, onSubmit }) => {
           />
         </div>
 
-        <SubmitButton canSubmit={canSubmit} submitting={submitting} label="Register Vehicle" />
+        <SubmitButton
+          canSubmit={canSubmit && !resubmitting}
+          submitting={submitting || resubmitting}
+          label={isEditing ? 'Resubmit Registration' : 'Register Vehicle'}
+        />
       </form>
     </div>
   );
@@ -924,16 +1043,85 @@ const AccidentInfoPanel = () => (
 );
 
 // ============================================================
-// REUSABLE PIECES
+// SHARED PIECES
 // ============================================================
+const EditBanner = ({ application, onCancel }) => (
+  <div style={{
+    background: '#fff8e0',
+    border: '2px solid #ffcc00',
+    borderRadius: 10,
+    padding: 16,
+    marginBottom: 20,
+  }}>
+    <div style={{ fontSize: 15, fontWeight: 'bold', color: '#7a5a00', marginBottom: 6 }}>
+      ✎ Editing — {application.application_reference}
+    </div>
+    <div style={{ fontSize: 13, color: '#7a5a00', lineHeight: 1.6, marginBottom: 10 }}>
+      <strong>What Traffic needs:</strong>{' '}
+      {application.notes || application.rejection_reason}
+    </div>
+    <button
+      type="button"
+      onClick={onCancel}
+      style={{
+        background: 'transparent',
+        border: '1px solid #7a5a00',
+        color: '#7a5a00',
+        padding: '6px 14px',
+        borderRadius: 999,
+        fontSize: 12,
+        fontWeight: 'bold',
+        cursor: 'pointer',
+      }}
+    >
+      Cancel editing
+    </button>
+  </div>
+);
+
+const ApplicantCard = ({ profile, age }) => (
+  <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+    <div style={{
+      width: 60, height: 60, borderRadius: '50%',
+      background: 'linear-gradient(135deg, #003366 0%, #0055aa 100%)',
+      color: 'white',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: 24, fontWeight: 'bold', flexShrink: 0,
+      overflow: 'hidden',
+    }}>
+      {profile?.photo_url ? (
+        <img
+          src={profile.photo_url}
+          alt={profile?.full_name}
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+      ) : (
+        (profile?.full_name || '?').charAt(0).toUpperCase()
+      )}
+    </div>
+    <div style={{ flex: 1, minWidth: 240 }}>
+      <div style={{ fontSize: 16, fontWeight: 'bold', color: '#003366' }}>
+        {profile?.full_name}
+      </div>
+      <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>
+        National ID: {profile?.national_id}
+      </div>
+      {age !== undefined && (
+        <div style={{ fontSize: 13, color: '#666' }}>
+          Age: <strong>{age}</strong>
+        </div>
+      )}
+      <div style={{ fontSize: 13, color: '#666' }}>
+        Citizenship: <strong>{getCitizenshipDisplay(profile?.citizenship_status)}</strong>
+      </div>
+    </div>
+  </div>
+);
+
 const Radio = ({ checked, onChange, label }) => (
   <label style={{
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    fontSize: 14,
-    color: '#333',
-    cursor: 'pointer',
+    display: 'flex', alignItems: 'center', gap: 8,
+    fontSize: 14, color: '#333', cursor: 'pointer',
   }}>
     <input type="radio" checked={checked} onChange={onChange} />
     {label}
@@ -988,5 +1176,19 @@ const SubmitButton = ({ canSubmit, submitting, label = 'Submit Application' }) =
     </Link>
   </div>
 );
+
+const eligibleStyle = {
+  marginTop: 8, padding: 12,
+  background: '#e6f4ea', color: '#006600',
+  border: '1px solid #a8d5b8', borderRadius: 6,
+  fontSize: 13, fontWeight: 'bold',
+};
+
+const notEligibleStyle = {
+  marginTop: 8, padding: 12,
+  background: '#fff3cd', color: '#856404',
+  border: '1px solid #ffe08a', borderRadius: 6,
+  fontSize: 13, fontWeight: 'bold',
+};
 
 export default TrafficModule;

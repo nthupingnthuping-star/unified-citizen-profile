@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../i18n/LanguageContext';
 import NotificationBell from './NotificationBell';
 import LanguageToggle from './LanguageToggle';
+import SimpleModeToggle from './SimpleModeToggle';
 
 const Layout = ({ children, title }) => {
   const navigate = useNavigate();
@@ -60,7 +61,7 @@ const Layout = ({ children, title }) => {
         display: 'flex', flexDirection: 'column', position: 'fixed',
         top: 0, bottom: 0, left: 0, zIndex: 10,
       }}>
-        {/* Header with logo + language toggle + bell */}
+        {/* Header with logo + toggles + bell */}
         <div style={{ padding: '15px 20px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <img
@@ -75,6 +76,11 @@ const Layout = ({ children, title }) => {
             </div>
             <LanguageToggle />
             <NotificationBell />
+          </div>
+
+          {/* Simple Mode toggle — full-width row below the header row */}
+          <div style={{ marginTop: 12 }}>
+            <SimpleModeToggle variant="light" />
           </div>
         </div>
 

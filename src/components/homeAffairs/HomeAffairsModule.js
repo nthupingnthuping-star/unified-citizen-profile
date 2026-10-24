@@ -5,6 +5,7 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import {
   submitApplication,
   getMyApplications,
+  resubmitApplication,
   DEPARTMENTS,
   DISTRICTS,
   saveCitizenPhoto,
@@ -18,6 +19,8 @@ import Table from '../common/Table';
 import FormField from '../common/FormField';
 import CloudinaryUpload from '../common/CloudinaryUpload';
 import PaymentBlock from '../common/PaymentBlock';
+import CitizenLookupField from '../common/CitizenLookupField';
+import RequestedInfoBanner from '../common/RequestedInfoBanner';
 import VerifiedGuard from '../citizen/VerifiedGuard';
 import '../../styles/module.css';
 
@@ -63,6 +66,13 @@ const getInitials = (fullName) => {
   );
 };
 
+const getCitizenshipDisplay = (raw) => {
+  const value = (raw || '').toLowerCase();
+  if (value.includes('mosotho') || value.includes('citizen')) return 'Mosotho';
+  if (value.includes('resident')) return 'Permanent resident';
+  return 'Mosotho';
+};
+
 // ============================================================
 // MAIN COMPONENT
 // ============================================================
@@ -75,6 +85,7 @@ const HomeAffairsModule = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [lastSubmission, setLastSubmission] = useState(null);
+  const [editingApplication, setEditingApplication] = useState(null);
 
   const fetchApplications = async () => {
     if (!profile) return;
@@ -119,6 +130,24 @@ const HomeAffairsModule = () => {
     }
   };
 
+  const handleStartEdit = (app) => {
+    setEditingApplication(app);
+    setActiveTab('documents');
+    setMessage('');
+    setLastSubmission(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingApplication(null);
+  };
+
+  const handleResubmitted = () => {
+    setEditingApplication(null);
+    setActiveTab('applications');
+    setMessage('✓ Your updated application has been resubmitted for review.');
+    fetchApplications();
+  };
+
   const statusColor = (s) => {
     if (s === 'approved' || s === 'completed') return 'green';
     if (s === 'rejected' || s === 'cancelled') return 'red';
@@ -132,6 +161,11 @@ const HomeAffairsModule = () => {
     { key: 'lost', label: 'Report Lost ID' },
     { key: 'applications', label: 'My Applications' },
   ];
+
+  // Applications where staff asked for more info
+  const needsInfo = applications.filter(
+    (a) => a.status === 'processing' && (a.notes || a.rejection_reason)
+  );
 
   return (
     <VerifiedGuard serviceName="Ministry of Home Affairs">
@@ -229,7 +263,14 @@ const HomeAffairsModule = () => {
           )}
 
           {activeTab === 'documents' && (
-            <DocumentRequestForm profile={profile} submitting={loading} onSubmit={submit} />
+            <DocumentRequestForm
+              profile={profile}
+              submitting={loading}
+              onSubmit={submit}
+              existingApplication={editingApplication}
+              onCancelEdit={handleCancelEdit}
+              onResubmitted={handleResubmitted}
+            />
           )}
 
           {activeTab === 'lost' && (
@@ -237,29 +278,57 @@ const HomeAffairsModule = () => {
           )}
 
           {activeTab === 'applications' && (
-            <div className="module-card">
-              <div className="module-section-title">My Home Affairs Applications</div>
-              <Table
-                headers={['Reference', 'Service', 'Status', 'Submitted', 'Action']}
-                rows={applications.map((a) => [
-                  a.application_reference,
-                  a.service_type,
-                  <Badge color={statusColor(a.status)}>{a.status}</Badge>,
-                  a.submitted_at?.toDate?.().toLocaleDateString() || '—',
-                  a.status === 'approved' || a.status === 'completed' ? (
-                    <Link
-                      to={`/certificate/${a.application_reference}`}
-                      style={{ color: '#003366', fontWeight: 'bold', textDecoration: 'underline', fontSize: 13 }}
-                    >
-                      View Document
-                    </Link>
-                  ) : (
-                    <span style={{ color: '#999', fontSize: 12 }}>—</span>
-                  ),
-                ])}
-                emptyMessage="No applications yet."
-              />
-            </div>
+            <>
+              {/* Show banner for any application awaiting citizen action */}
+              {needsInfo.map((a) => (
+                <RequestedInfoBanner
+                  key={a.id}
+                  application={a}
+                  onEdit={() => handleStartEdit(a)}
+                />
+              ))}
+
+              <div className="module-card">
+                <div className="module-section-title">My Home Affairs Applications</div>
+                <Table
+                  headers={['Reference', 'Service', 'Status', 'Submitted', 'Action']}
+                  rows={applications.map((a) => [
+                    a.application_reference,
+                    a.service_type,
+                    <Badge color={statusColor(a.status)}>{a.status}</Badge>,
+                    a.submitted_at?.toDate?.().toLocaleDateString() || '—',
+                    a.status === 'processing' && (a.notes || a.rejection_reason) ? (
+                      <button
+                        onClick={() => handleStartEdit(a)}
+                        style={{
+                          background: 'linear-gradient(135deg, #ffcc00 0%, #ff9900 100%)',
+                          color: '#003366',
+                          border: 'none',
+                          padding: '6px 14px',
+                          borderRadius: 999,
+                          fontSize: 12,
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 8px rgba(255, 153, 0, 0.35)',
+                        }}
+                      >
+                        ✎ Edit & Resubmit
+                      </button>
+                    ) : a.status === 'approved' || a.status === 'completed' ? (
+                      <Link
+                        to={`/certificate/${a.application_reference}`}
+                        style={{ color: '#003366', fontWeight: 'bold', textDecoration: 'underline', fontSize: 13 }}
+                      >
+                        View Document
+                      </Link>
+                    ) : (
+                      <span style={{ color: '#999', fontSize: 12 }}>—</span>
+                    ),
+                  ])}
+                  emptyMessage="No applications yet."
+                />
+              </div>
+            </>
           )}
         </div>
       </Layout>
@@ -268,7 +337,7 @@ const HomeAffairsModule = () => {
 };
 
 // ============================================================
-// TAB 1 — MY IDENTITY (with photo change)
+// TAB 1 — MY IDENTITY (photo locked after first upload)
 // ============================================================
 const MyIdentityTab = ({ profile, onPhotoUpdated }) => {
   const initials = getInitials(profile?.full_name);
@@ -283,14 +352,13 @@ const MyIdentityTab = ({ profile, onPhotoUpdated }) => {
   const [contactSaving, setContactSaving] = useState(false);
   const [contactMessage, setContactMessage] = useState('');
 
-  // Keep local state in sync if profile updates elsewhere
   useEffect(() => {
     if (profile?.photo_url) setPhotoUrl(profile.photo_url);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.photo_url]);
 
   const handlePhotoChange = async (newUrl) => {
-    if (!newUrl) return;
+    if (!newUrl || photoUrl) return; // locked after first upload
     setUploading(true);
     setPhotoError('');
     try {
@@ -330,7 +398,6 @@ const MyIdentityTab = ({ profile, onPhotoUpdated }) => {
         borderBottom: '1px solid #eee',
         marginBottom: 24,
       }}>
-        {/* Photo with change button */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
           <div style={{
             width: 110,
@@ -369,20 +436,33 @@ const MyIdentityTab = ({ profile, onPhotoUpdated }) => {
             )}
           </div>
 
-          <div style={{ width: '100%', maxWidth: 240 }}>
-            <CloudinaryUpload
-              label={hasPhoto ? 'Change photo' : 'Add photo'}
-              onUpload={handlePhotoChange}
-            />
-            {photoError && (
-              <div style={{ color: '#cc0000', fontSize: 12, marginTop: 6, textAlign: 'center' }}>
-                {photoError}
-              </div>
-            )}
-          </div>
+          {!hasPhoto && (
+            <div style={{ width: '100%', maxWidth: 240 }}>
+              <CloudinaryUpload
+                label="Add photo (permanent, can't be changed)"
+                onUpload={handlePhotoChange}
+              />
+              {photoError && (
+                <div style={{ color: '#cc0000', fontSize: 12, marginTop: 6, textAlign: 'center' }}>
+                  {photoError}
+                </div>
+              )}
+            </div>
+          )}
+
+          {hasPhoto && (
+            <div style={{
+              fontSize: 11,
+              color: '#888',
+              textAlign: 'center',
+              maxWidth: 240,
+              lineHeight: 1.5,
+            }}>
+              🔒 Photo is locked. Contact Home Affairs if you need it changed.
+            </div>
+          )}
         </div>
 
-        {/* Identity summary */}
         <div style={{ flex: 1, minWidth: 260 }}>
           <h2 style={{ margin: 0, color: '#003366', fontSize: 24 }}>
             {profile?.full_name}
@@ -391,7 +471,7 @@ const MyIdentityTab = ({ profile, onPhotoUpdated }) => {
             National ID: <strong>{profile?.national_id}</strong>
           </div>
           <div style={{ fontSize: 14, color: '#666', marginTop: 4 }}>
-            Citizenship: <strong>{profile?.citizenship_status || 'Mosotho'}</strong>
+            Citizenship: <strong>{getCitizenshipDisplay(profile?.citizenship_status)}</strong>
           </div>
           <div style={{ marginTop: 14 }}>
             {profile?.verified_by_home_affairs ? (
@@ -427,7 +507,7 @@ const MyIdentityTab = ({ profile, onPhotoUpdated }) => {
         <Row label="National ID" value={profile?.national_id} />
         <Row label="Date of Birth" value={profile?.date_of_birth} />
         <Row label="Gender" value={profile?.gender} />
-        <Row label="Citizenship" value={profile?.citizenship_status || 'Mosotho'} />
+        <Row label="Citizenship" value={getCitizenshipDisplay(profile?.citizenship_status)} />
       </div>
 
       <div className="module-section">
@@ -478,25 +558,6 @@ const MyIdentityTab = ({ profile, onPhotoUpdated }) => {
         </button>
       </div>
 
-      {profile?.id_document_url && (
-        <div className="module-section">
-          <div className="module-section-title">Supporting document on file</div>
-          <Row
-            label={profile?.id_document_type || 'Supporting Document'}
-            value={
-              <a
-                href={profile.id_document_url}
-                target="_blank"
-                rel="noreferrer"
-                style={{ color: '#0055aa', fontWeight: 'bold' }}
-              >
-                📄 View Document
-              </a>
-            }
-          />
-        </div>
-      )}
-
       <div className="module-section" style={{ borderBottom: 'none', paddingBottom: 0 }}>
         <div className="module-section-title">ID status</div>
         <Row
@@ -523,32 +584,46 @@ const MyIdentityTab = ({ profile, onPhotoUpdated }) => {
 };
 
 // ============================================================
-// TAB 2 — REQUEST A DOCUMENT (with auto-fill + death cert)
+// TAB 2 — REQUEST A DOCUMENT (create or edit)
 // ============================================================
-const DocumentRequestForm = ({ profile, submitting, onSubmit }) => {
+const DocumentRequestForm = ({
+  profile,
+  submitting,
+  onSubmit,
+  existingApplication = null,
+  onCancelEdit,
+  onResubmitted,
+}) => {
+  const isEditing = !!existingApplication;
+  const existingData = existingApplication?.application_data || {};
+
   const [form, setForm] = useState({
-    document_type: '',
-    reason: '',
-    bank_name: '',
-    collection_branch: 'Maseru',
-    deceased_full_name: '',
-    deceased_national_id: '',
-    deceased_date_of_death: '',
-    deceased_place_of_death: '',
-    relationship_to_deceased: '',
-    truth_declaration: false,
+    document_type: existingData.document_type || '',
+    reason: existingData.reason || '',
+    bank_name: existingData.payment?.bank_name || '',
+    collection_branch: existingData.collection_branch || 'Maseru',
+    // Death Certificate specific
+    deceased_full_name: existingData.deceased?.full_name || '',
+    deceased_national_id: existingData.deceased?.national_id || '',
+    deceased_date_of_death: existingData.deceased?.date_of_death || '',
+    deceased_place_of_death: existingData.deceased?.place_of_death || '',
+    relationship_to_deceased: existingData.deceased?.relationship || '',
+    truth_declaration: existingData.declarations?.truth || false,
   });
 
   const [uploaded, setUploaded] = useState({
-    national_id: null,
-    police_report: null,
-    supporting: null,
-    death_evidence: null,
+    national_id: existingData.documents_uploaded?.national_id || null,
+    police_report: existingData.documents_uploaded?.police_report || null,
+    supporting: existingData.documents_uploaded?.supporting || null,
+    death_evidence: existingData.documents_uploaded?.death_evidence || null,
   });
 
-  const [paymentRef] = useState(() => generatePaymentReference());
+  const [paymentRef] = useState(
+    () => existingData.payment?.reference || generatePaymentReference()
+  );
+  const [resubmitting, setResubmitting] = useState(false);
 
-  // Auto-fill from profile
+  // Auto-fill only for new applications
   useAutoFill(profile, form, setForm);
 
   const update = (k, v) => setForm({ ...form, [k]: v });
@@ -558,6 +633,16 @@ const DocumentRequestForm = ({ profile, submitting, onSubmit }) => {
   const fee = docMeta?.fee || 0;
   const needsPayment = fee > 0;
   const isDeathCertificate = form.document_type === 'Death Certificate';
+
+  const handleDeceasedFound = (citizen) => {
+    setForm((prev) => ({
+      ...prev,
+      deceased_full_name: citizen.full_name || prev.deceased_full_name,
+      deceased_national_id: citizen.national_id || prev.deceased_national_id,
+      deceased_place_of_death:
+        citizen.residential_address || prev.deceased_place_of_death,
+    }));
+  };
 
   const canSubmit =
     form.document_type &&
@@ -569,10 +654,7 @@ const DocumentRequestForm = ({ profile, submitting, onSubmit }) => {
         form.deceased_date_of_death &&
         form.relationship_to_deceased.trim()));
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!canSubmit) return;
-
+  const buildPayload = () => {
     const extra = isDeathCertificate
       ? {
           deceased: {
@@ -585,7 +667,7 @@ const DocumentRequestForm = ({ profile, submitting, onSubmit }) => {
         }
       : {};
 
-    await onSubmit(form.document_type, {
+    return {
       document_type: form.document_type,
       reason: form.reason,
       collection_branch: form.collection_branch,
@@ -597,34 +679,114 @@ const DocumentRequestForm = ({ profile, submitting, onSubmit }) => {
       },
       ...extra,
       payment: needsPayment
-        ? { reference: paymentRef, bank: form.bank_name, status: 'awaiting_payment' }
+        ? {
+            reference: paymentRef,
+            bank: form.bank_name,
+            status: existingData.payment?.status || 'awaiting_payment',
+          }
         : null,
       fees: { base: fee, total: fee },
       processing_time: docMeta?.processing || '10 working days',
-      declarations: { truth: form.truth_declaration, declared_at: new Date().toISOString() },
-    });
+      declarations: {
+        truth: form.truth_declaration,
+        declared_at: new Date().toISOString(),
+      },
+    };
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!canSubmit) return;
+
+    const payload = buildPayload();
+
+    if (isEditing) {
+      setResubmitting(true);
+      try {
+        await resubmitApplication(existingApplication.id, payload);
+        if (onResubmitted) onResubmitted();
+      } catch (err) {
+        alert('Failed to resubmit: ' + err.message);
+      } finally {
+        setResubmitting(false);
+      }
+    } else {
+      await onSubmit(form.document_type, payload);
+    }
   };
 
   return (
     <div className="module-card">
-      <div className="module-section-title">Request a Document</div>
+      {/* Edit-mode banner */}
+      {isEditing && (
+        <div style={{
+          background: '#fff8e0',
+          border: '2px solid #ffcc00',
+          borderRadius: 10,
+          padding: 16,
+          marginBottom: 20,
+        }}>
+          <div style={{
+            fontSize: 15,
+            fontWeight: 'bold',
+            color: '#7a5a00',
+            marginBottom: 6,
+          }}>
+            ✎ Editing — {existingApplication.application_reference}
+          </div>
+          <div style={{
+            fontSize: 13,
+            color: '#7a5a00',
+            lineHeight: 1.6,
+            marginBottom: 10,
+          }}>
+            <strong>What Home Affairs needs:</strong>{' '}
+            {existingApplication.notes || existingApplication.rejection_reason}
+          </div>
+          <button
+            type="button"
+            onClick={onCancelEdit}
+            style={{
+              background: 'transparent',
+              border: '1px solid #7a5a00',
+              color: '#7a5a00',
+              padding: '6px 14px',
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 'bold',
+              cursor: 'pointer',
+            }}
+          >
+            Cancel editing
+          </button>
+        </div>
+      )}
 
-      <Alert type="info">
-        Most Home Affairs documents are issued <strong>free of charge</strong>.
-        Upload clear photographs or scans of the required documents.
-      </Alert>
+      <div className="module-section-title">
+        {isEditing ? 'Update Your Application' : 'Request a Document'}
+      </div>
+
+      {!isEditing && (
+        <Alert type="info">
+          Most Home Affairs documents are issued <strong>free of charge</strong>.
+          Upload clear photographs or scans of the required documents.
+        </Alert>
+      )}
 
       <form onSubmit={handleSubmit}>
+        {/* 1 · APPLICANT */}
         <div className="module-section">
           <div className="module-section-title">1 · Applicant</div>
           <div style={{ fontSize: 16, fontWeight: 'bold', color: '#003366' }}>
             {profile?.full_name}
           </div>
           <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>
-            National ID: {profile?.national_id}
+            National ID: {profile?.national_id} · Citizenship:{' '}
+            <strong>{getCitizenshipDisplay(profile?.citizenship_status)}</strong>
           </div>
         </div>
 
+        {/* 2 · DOCUMENT REQUESTED */}
         <div className="module-section">
           <div className="module-section-title">2 · Document requested</div>
           <FormField
@@ -668,14 +830,23 @@ const DocumentRequestForm = ({ profile, submitting, onSubmit }) => {
           />
         </div>
 
+        {/* 3 · DECEASED DETAILS */}
         {isDeathCertificate && (
           <div className="module-section">
             <div className="module-section-title">3 · Deceased details</div>
+
             <Alert type="warning">
-              When this Death Certificate is approved by Home Affairs, the deceased's
-              citizen record will be marked as deceased. All government services for
-              that person will be closed immediately.
+              When this Death Certificate is approved, the deceased's citizen record
+              will be marked as deceased. All government services for that person will
+              be closed immediately.
             </Alert>
+
+            <CitizenLookupField
+              label="Find the deceased (National ID or full name)"
+              placeholder="e.g. 035159126628 or Nthuping Nthuping"
+              onFound={handleDeceasedFound}
+            />
+
             <FormField
               label="Deceased Full Name *"
               value={form.deceased_full_name}
@@ -711,6 +882,7 @@ const DocumentRequestForm = ({ profile, submitting, onSubmit }) => {
           </div>
         )}
 
+        {/* 4 · UPLOADS */}
         <div className="module-section">
           <div className="module-section-title">
             {isDeathCertificate ? '4 · Upload documents' : '3 · Upload your documents'}
@@ -720,7 +892,11 @@ const DocumentRequestForm = ({ profile, submitting, onSubmit }) => {
           </p>
 
           <CloudinaryUpload
-            label={isDeathCertificate ? 'Your ID (applicant) *' : 'Current National ID or Police Report *'}
+            label={
+              isDeathCertificate
+                ? 'Your ID (applicant) *'
+                : 'Current National ID or Police Report *'
+            }
             onUpload={(url) => setUpload('national_id', url)}
           />
 
@@ -742,6 +918,7 @@ const DocumentRequestForm = ({ profile, submitting, onSubmit }) => {
           />
         </div>
 
+        {/* 5 · COLLECTION BRANCH */}
         <div className="module-section">
           <div className="module-section-title">
             {isDeathCertificate ? '5 · Collection branch' : '4 · Collection branch'}
@@ -756,9 +933,10 @@ const DocumentRequestForm = ({ profile, submitting, onSubmit }) => {
           />
         </div>
 
+        {/* 6 · PAYMENT */}
         {needsPayment ? (
           <div className="module-section">
-            <div className="module-section-title">5 · Payment</div>
+            <div className="module-section-title">Payment</div>
             <PaymentBlock
               reference={paymentRef}
               bankName={form.bank_name}
@@ -770,7 +948,7 @@ const DocumentRequestForm = ({ profile, submitting, onSubmit }) => {
         ) : (
           docMeta && (
             <div className="module-section">
-              <div className="module-section-title">5 · Submission</div>
+              <div className="module-section-title">Submission</div>
               <div style={{
                 background: '#e6f4ea',
                 border: '1px solid #a8d5b8',
@@ -780,14 +958,14 @@ const DocumentRequestForm = ({ profile, submitting, onSubmit }) => {
                 color: '#006600',
               }}>
                 <strong>✓ No payment required.</strong> This is a free government service.
-                Submit the form and collect your document at the branch you selected.
               </div>
             </div>
           )
         )}
 
+        {/* 7 · DECLARATION */}
         <div className="module-section" style={{ borderBottom: 'none', paddingBottom: 0 }}>
-          <div className="module-section-title">6 · Declaration</div>
+          <div className="module-section-title">Declaration</div>
           <Checkbox
             checked={form.truth_declaration}
             onChange={(v) => update('truth_declaration', v)}
@@ -795,7 +973,11 @@ const DocumentRequestForm = ({ profile, submitting, onSubmit }) => {
           />
         </div>
 
-        <SubmitButton canSubmit={canSubmit} submitting={submitting} label="Submit Request" />
+        <SubmitButton
+          canSubmit={canSubmit && !resubmitting}
+          submitting={submitting || resubmitting}
+          label={isEditing ? 'Resubmit Application' : 'Submit Request'}
+        />
       </form>
     </div>
   );
@@ -833,7 +1015,10 @@ const ReportLostIDForm = ({ profile, submitting, onSubmit }) => {
       police_case_number: form.police_case_number,
       police_report_url: policeReportUrl,
       id_blocked: true,
-      declarations: { confirm_cancel: form.confirm_cancel, declared_at: new Date().toISOString() },
+      declarations: {
+        confirm_cancel: form.confirm_cancel,
+        declared_at: new Date().toISOString(),
+      },
     });
   };
 
@@ -921,9 +1106,9 @@ const ReportLostIDForm = ({ profile, submitting, onSubmit }) => {
             color: '#cc0000',
             marginBottom: 16,
           }}>
-            <strong>Important:</strong> Reporting your ID lost will <strong>immediately block</strong> it
-            in the Home Affairs system. It cannot be used to verify your identity at any
-            government office until a new ID is issued.
+            <strong>Important:</strong> Reporting your ID lost will{' '}
+            <strong>immediately block</strong> it in the Home Affairs system. It cannot
+            be used to verify your identity at any government office until a new ID is issued.
           </div>
           <Checkbox
             checked={form.confirm_cancel}

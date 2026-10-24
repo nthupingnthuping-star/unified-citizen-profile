@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { loginCitizen, resendVerificationEmail } from '../../firebase/auth';
 import { useLanguage } from '../../i18n/LanguageContext';
 import Alert from '../common/Alert';
@@ -8,7 +8,12 @@ import LanguageToggleLight from '../common/LanguageToggleLight';
 
 const CitizenLogin = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useLanguage();
+  
+  // Determine where to redirect after successful login
+  const from = location.state?.from?.pathname || '/dashboard';
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,7 +31,8 @@ const CitizenLogin = () => {
 
     try {
       await loginCitizen(email, password);
-      navigate('/dashboard');
+      // Redirect to the saved path (e.g., /finance) or fallback to dashboard
+      navigate(from, { replace: true });
     } catch (err) {
       console.error(err);
       if (err.code === 'auth/email-not-verified') {

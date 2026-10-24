@@ -1,123 +1,221 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef } from 'react';
 
+// ============================================================
+// CLOUDINARY CONFIG
+// ============================================================
 const CLOUD_NAME = 'gykoybmc';
 const UPLOAD_PRESET = 'pension_upload_unsigned';
+const FOLDER = 'citizen_photos';
 
-const PhotoUpload = ({ label = 'Profile Photo', currentUrl, onUpload }) => {
-  const [loaded, setLoaded] = useState(false);
-  const [photoUrl, setPhotoUrl] = useState(currentUrl || '');
+// ============================================================
+// PHOTO UPLOAD
+// WhatsApp-style avatar with camera badge.
+// Once a photo exists, the citizen CANNOT change it — the
+// camera badge disappears and the avatar becomes read-only.
+// This prevents account takeover via photo replacement.
+// ============================================================
+const PhotoUpload = ({
+  currentUrl = '',
+  onUpload,
+  disabled = false,
+  size = 110,
+}) => {
+  const inputRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const [preview, setPreview] = useState(currentUrl);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (currentUrl) setPhotoUrl(currentUrl);
-  }, [currentUrl]);
+  // 🔒 LOCK: as soon as a photo exists (or has just been uploaded),
+  // the citizen can no longer change it.
+  const locked = Boolean(preview);
 
-  useEffect(() => {
-    if (window.cloudinary) {
-      setLoaded(true);
-      return;
-    }
-    const interval = setInterval(() => {
-      if (window.cloudinary) {
-        setLoaded(true);
-        clearInterval(interval);
-      }
-    }, 100);
-    return () => clearInterval(interval);
-  }, []);
-
-  const openWidget = () => {
-    if (!window.cloudinary) {
-      alert('Cloudinary script not loaded. Check index.html.');
-      return;
-    }
-    const widget = window.cloudinary.createUploadWidget(
-      {
-        cloudName: CLOUD_NAME,
-        uploadPreset: UPLOAD_PRESET,
-        folder: 'citizen_documents',
-        sources: ['local', 'camera'],
-        multiple: false,
-        resourceType: 'image',
-        clientAllowedFormats: ['png', 'jpg', 'jpeg'],
-        maxFileSize: 3000000,
-        cropping: true,
-        croppingAspectRatio: 1,
-        croppingShowDimensions: false,
-        showSkipCropButton: false,
-      },
-      (error, result) => {
-        if (!error && result && result.event === 'success') {
-          const url = result.info.secure_url;
-          setPhotoUrl(url);
-          if (onUpload) onUpload(url);
-        }
-      }
-    );
-    widget.open();
+  const openPicker = () => {
+    if (locked) return;      // silent no-op when locked
+    if (disabled || uploading) return;
+    inputRef.current?.click();
   };
 
-  return (
-    <div style={{ marginBottom: 20 }}>
-      <label style={{
-        display: 'block',
-        fontSize: 13,
-        fontWeight: 'bold',
-        marginBottom: 8,
-        color: '#333',
-      }}>
-        {label}
-      </label>
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-        <div style={{
-          width: 96,
-          height: 96,
+    setError('');
+
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    if (!['png', 'jpg', 'jpeg'].includes(ext)) {
+      setError('Only PNG, JPG, or JPEG images are allowed.');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image is too large. Maximum 5 MB.');
+      e.target.value = '';
+      return;
+    }
+
+    const localPreview = URL.createObjectURL(file);
+    setPreview(localPreview);
+    setUploading(true);
+
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('upload_preset', UPLOAD_PRESET);
+      fd.append('folder', FOLDER);
+
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`,
+        { method: 'POST', body: fd }
+      );
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error?.message || 'Upload failed.');
+
+      setPreview(data.secure_url);
+      if (onUpload) onUpload(data.secure_url);
+    } catch (err) {
+      console.error(err);
+      setPreview(currentUrl);
+      setError(err.message || 'Upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+      URL.revokeObjectURL(localPreview);
+      e.target.value = '';
+    }
+  };
+
+  const badgeSize = Math.round(size * 0.32);
+  const iconSize = Math.round(badgeSize * 0.55);
+
+  return (
+    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
+      <button
+        type="button"
+        onClick={openPicker}
+        disabled={disabled || uploading || locked}
+        style={{
+          position: 'relative',
+          width: size,
+          height: size,
+          padding: 0,
+          border: 'none',
+          background: 'transparent',
+          cursor: locked ? 'default' : (disabled || uploading ? 'not-allowed' : 'pointer'),
           borderRadius: '50%',
-          background: 'linear-gradient(135deg, #003366 0%, #0055aa 100%)',
-          color: 'white',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 36,
-          fontWeight: 'bold',
-          flexShrink: 0,
-          overflow: 'hidden',
-          boxShadow: '0 4px 16px rgba(0, 51, 102, 0.22)',
-        }}>
-          {photoUrl ? (
+        }}
+        aria-label={locked ? 'Profile photo' : 'Upload profile photo'}
+        title={locked ? 'Profile photo is locked' : 'Upload profile photo'}
+      >
+        <div
+          style={{
+            width: size,
+            height: size,
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #003366 0%, #0055aa 100%)',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: Math.round(size * 0.4),
+            overflow: 'hidden',
+            boxShadow: '0 4px 16px rgba(0, 51, 102, 0.22)',
+            border: '3px solid white',
+          }}
+        >
+          {preview ? (
             <img
-              src={photoUrl}
+              src={preview}
               alt="Profile"
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
           ) : (
-            '👤'
+            <span style={{ opacity: 0.7 }}>👤</span>
           )}
         </div>
 
-        <div style={{ flex: 1 }}>
-          <button
-            type="button"
-            onClick={openWidget}
+        {/* Camera badge — only shown BEFORE first upload */}
+        {!locked && (
+          <div
             style={{
-              background: loaded ? 'linear-gradient(135deg, #003366 0%, #0055aa 100%)' : '#999',
+              position: 'absolute',
+              bottom: 0,
+              right: 0,
+              width: badgeSize,
+              height: badgeSize,
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #006600 0%, #00a050 100%)',
               color: 'white',
-              border: 'none',
-              padding: '10px 22px',
-              borderRadius: 999,
-              fontSize: 13,
-              fontWeight: 'bold',
-              cursor: loaded ? 'pointer' : 'not-allowed',
-              boxShadow: loaded ? '0 4px 14px rgba(0, 51, 102, 0.25)' : 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '2px solid white',
+              boxShadow: '0 2px 8px rgba(0, 102, 0, 0.4)',
+              pointerEvents: 'none',
             }}
           >
-            {photoUrl ? '📷 Change Photo' : '📷 Upload Photo'}
-          </button>
-          <p style={{ fontSize: 12, color: '#666', margin: '8px 0 0 0' }}>
-            Square crop, JPG or PNG, max 3 MB.
-          </p>
+            <svg
+              width={iconSize}
+              height={iconSize}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="white"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+              <circle cx="12" cy="13" r="4" />
+            </svg>
+          </div>
+        )}
+
+        {/* Uploading overlay */}
+        {uploading && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: '50%',
+              background: 'rgba(0,0,0,0.55)',
+              color: 'white',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 11,
+              fontWeight: 'bold',
+            }}
+          >
+            …
+          </div>
+        )}
+      </button>
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".png,.jpg,.jpeg"
+        onChange={handleFileSelect}
+        disabled={disabled || uploading || locked}
+        style={{ display: 'none' }}
+      />
+
+      {error && (
+        <div
+          style={{
+            marginTop: 10,
+            background: '#fff0f0',
+            border: '1px solid #ffcccc',
+            color: '#cc0000',
+            padding: 8,
+            borderRadius: 6,
+            fontSize: 12,
+            maxWidth: 280,
+            textAlign: 'center',
+          }}
+        >
+          {error}
         </div>
-      </div>
+      )}
     </div>
   );
 };

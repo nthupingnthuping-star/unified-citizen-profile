@@ -236,17 +236,17 @@ export async function submitApplication({
   }
 
   // ============================================================
-// OLD AGE PENSION — block government employees
-// ============================================================
-if (service_type === 'Old Age Pension') {
-  const empType = application_data?.employment?.employment_type;
-  if (empType === 'Government') {
-    throw new Error(
-      'You cannot apply for Old Age Pension while employed by the Government. ' +
-      'Civil-service employees receive a state pension instead.'
-    );
+  // OLD AGE PENSION — block government employees
+  // ============================================================
+  if (service_type === 'Old Age Pension') {
+    const empType = application_data?.employment?.employment_type;
+    if (empType === 'Government') {
+      throw new Error(
+        'You cannot apply for Old Age Pension while employed by the Government. ' +
+        'Civil-service employees receive a state pension instead.'
+      );
+    }
   }
-}
 
   const year = new Date().getFullYear();
   const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
@@ -642,6 +642,34 @@ export async function updateApplicationStatus(applicationId, action, staffId, re
 }
 
 // ============================================================
+// RESUBMIT APPLICATION
+// Used when staff requested more info and the citizen edits
+// their application. Resets status to 'pending' for re-review.
+// ============================================================
+export async function resubmitApplication(applicationId, newApplicationData, staffNote = '') {
+  if (!applicationId) throw new Error('applicationId is required');
+
+  await updateDoc(doc(db, 'applications', applicationId), {
+    application_data: newApplicationData,
+    status: 'pending',
+    notes: staffNote || '',
+    rejection_reason: '',
+    updated_at: serverTimestamp(),
+    resubmitted_at: serverTimestamp(),
+  });
+
+  const appSnap = await getDoc(doc(db, 'applications', applicationId));
+  if (appSnap.exists()) {
+    const app = appSnap.data();
+    await createNotification(app.citizen_id, {
+      title: 'Application resubmitted',
+      message: `Your updated ${app.service_type} application (${app.application_reference}) has been received and will be re-reviewed.`,
+      type: 'info',
+    });
+  }
+}
+
+// ============================================================
 // ACCESS LOGS
 // ============================================================
 export async function logAccess({
@@ -997,7 +1025,7 @@ export async function getApplicationByReference(reference) {
 }
 
 /**
- * Returns the public verification URL that a QR code on a certificate
+ * Returns the public verification URL that a certificate QR code
  * should encode.
  *
  * IMPORTANT: This MUST always return the production URL. Certificates
@@ -1009,13 +1037,12 @@ export async function getApplicationByReference(reference) {
  * commit that override.
  */
 export function getCertificateVerifyUrl(reference) {
-  // Always use production URL — certificates must be verifiable from
-  // any phone, anywhere. Never encode localhost or LAN IPs into a QR.
   const baseUrl =
     process.env.REACT_APP_PUBLIC_VERIFY_URL ||
     'https://unified-citizen-profile.web.app';
   return `${baseUrl}/verify/${reference}`;
 }
+
 export function isCertificateValid(application) {
   if (!application) return false;
   if (application.status !== 'approved' && application.status !== 'completed') return false;
@@ -1109,6 +1136,7 @@ export async function submitTinRegistration({
 
   return { id: docRef.id, reference };
 }
+
 export async function getTinRegistrations(status = 'all') {
   const constraints = [];
   if (status !== 'all') constraints.push(where('status', '==', status));
@@ -1190,27 +1218,68 @@ export async function getMyFundRecord(citizenId) {
 }
 
 export async function createFundRecord(citizenId, data) {
-  const totalMember = data.total_member_contributions || 0;
-  const totalEmployer = data.total_employer_contributions || 0;
-  const investmentReturns = data.investment_returns || 0;
-  const totalFundCredit = totalMember + totalEmployer + investmentReturns;
+  // ============================================================
+  // VALIDATION — prevent fraudulent or impossible fund records
+  // ============================================================
+  const errors = [];
+
+  const months = Number(data.months_of_service) || 0;
+  const monthly = Number(data.monthly_contribution) || 0;
+  const member = Number(data.total_member_contributions) || 0;
+  const employer = Number(data.total_employer_contributions) || 0;
+  const investment = Number(data.investment_returns) || 0;
+
+  if (months < 1) errors.push('Months of service must be at least 1.');
+  if (months > 600) errors.push('Months of service looks unrealistic (max 50 years).');
+  if (monthly < 0) errors.push('Monthly contribution cannot be negative.');
+  if (member < 0 || employer < 0 || investment < 0) {
+    errors.push('Contributions and returns cannot be negative.');
+  }
+
+  const expectedTotal = months * monthly * 0.8;
+  if (expectedTotal > 0 && member + employer < expectedTotal * 0.5) {
+    errors.push(
+      'Total contributions look too low for the months of service and monthly rate declared.'
+    );
+  }
+
+  if ((member + employer) > 0 && investment > (member + employer) * 0.5) {
+    errors.push('Investment returns look too high relative to contributions.');
+  }
+
+  if (errors.length > 0) {
+    throw new Error('Validation failed: ' + errors.join(' '));
+  }
+
+  // ============================================================
+  // SAVE — with totals computed server-side
+  // ============================================================
+  const totalFundCredit = member + employer + investment;
 
   await setDoc(doc(db, 'pension_fund_records', citizenId), {
     citizen_id: citizenId,
-    member_number: data.member_number || `PF-${new Date().getFullYear()}-${Math.floor(Math.random() * 100000).toString().padStart(5, '0')}`,
-    total_member_contributions: totalMember,
-    total_employer_contributions: totalEmployer,
-    investment_returns: investmentReturns,
+    member_number:
+      data.member_number ||
+      `PF-${new Date().getFullYear()}-${Math.floor(Math.random() * 100000)
+        .toString()
+        .padStart(5, '0')}`,
+    total_member_contributions: member,
+    total_employer_contributions: employer,
+    investment_returns: investment,
     total_fund_credit: totalFundCredit,
-    months_of_service: data.months_of_service || 0,
-    monthly_contribution: data.monthly_contribution || 0,
+    months_of_service: months,
+    monthly_contribution: monthly,
     employer_name: data.employer_name || '',
     last_contribution_date: data.last_contribution_date || serverTimestamp(),
     employment_branch: data.employment_branch || 'Public Service',
     retirement_age: RETIREMENT_AGES[data.employment_branch] || 60,
+
     verification_status: 'pending',
     submitted_for_verification_at: serverTimestamp(),
-    verified_by: null, verified_at: null, verification_notes: '',
+    verified_by: null,
+    verified_at: null,
+    verification_notes: '',
+
     updated_at: serverTimestamp(),
   });
 }
@@ -1540,8 +1609,6 @@ export function generateApplicationReference(prefix) {
 
 // ============================================================
 // PENSIONS — unified work queue
-// Merges pension_claims and applications (dept 4) into a
-// single list of work items for the Pensions staff queue.
 // ============================================================
 export async function getAllPensionWork() {
   const [claimsSnap, appsSnap] = await Promise.all([
@@ -1579,14 +1646,9 @@ export async function getAllPensionWork() {
 
   return merged;
 }
-// ============================================================
-// CITIZEN PHOTO — Cloudinary upload URLs
-// ============================================================
-
 
 // ============================================================
 // CITIZEN PHOTO + SUPPORTING DOCUMENT
-// Uploaded to Cloudinary at registration or on the dashboard.
 // ============================================================
 export async function saveCitizenPhoto(uid, photo_url) {
   if (!uid || !photo_url) return;
@@ -1604,15 +1666,10 @@ export async function saveCitizenDocument(uid, { document_url, document_type }) 
     id_document_updated_at: serverTimestamp(),
   });
 }
+
 // ============================================================
 // DECEASED CITIZEN
 // ============================================================
-
-/**
- * Mark a citizen as deceased.
- * Called by Home Affairs staff when approving a Death Certificate.
- * This immediately blocks the citizen from every department.
- */
 export async function markCitizenDeceased(citizenId, certificateReference, staffId = null) {
   if (!citizenId) throw new Error('citizenId is required');
 
@@ -1634,10 +1691,6 @@ export async function markCitizenDeceased(citizenId, certificateReference, staff
   });
 }
 
-/**
- * Undo a deceased flag (admin error correction).
- * Should only be used by senior Home Affairs staff.
- */
 export async function unmarkCitizenDeceased(citizenId, staffId = null, reason = '') {
   if (!citizenId) throw new Error('citizenId is required');
 
@@ -1662,11 +1715,6 @@ export async function unmarkCitizenDeceased(citizenId, staffId = null, reason = 
 // ============================================================
 // EMPLOYMENT CROSS-CHECK (Finance ↔ Pensions)
 // ============================================================
-
-/**
- * Store employment information on the citizen record.
- * Called by Pensions and Finance forms.
- */
 export async function updateCitizenEmployment(citizenId, employment) {
   if (!citizenId) throw new Error('citizenId is required');
   if (!employment) return;
@@ -1676,18 +1724,14 @@ export async function updateCitizenEmployment(citizenId, employment) {
       employer_name: employment.employer_name || '',
       employment_type: employment.employment_type || '',
       employee_number: employment.employee_number || '',
+      monthly_salary: employment.monthly_salary || '',
+      payslip_url: employment.payslip_url || null,
       updated_at: new Date().toISOString(),
     },
     updated_at: serverTimestamp(),
   });
 }
 
-/**
- * Check whether a citizen is already receiving government wages.
- * Used to prevent double payouts (Finance salary + Pensions grant).
- *
- * Returns { isGovernmentEmployee, source, employer_name }
- */
 export async function checkDuplicatePayout(citizenId) {
   if (!citizenId) return { isGovernmentEmployee: false };
 
@@ -1712,8 +1756,6 @@ export async function checkDuplicatePayout(citizenId) {
 
 // ============================================================
 // AUTO-TRIGGER: DEATH CERTIFICATE APPROVAL
-// Wraps updateApplicationStatus so that when a Death Certificate
-// is approved, the citizen is automatically flagged as deceased.
 // ============================================================
 const _originalUpdateApplicationStatus = updateApplicationStatus;
 
@@ -1723,14 +1765,11 @@ export async function updateApplicationStatusWithDeceasedCheck(
   staffId,
   reason = ''
 ) {
-  // Fetch the application first
   const appSnap = await getDoc(doc(db, 'applications', applicationId));
   const app = appSnap.exists() ? appSnap.data() : null;
 
-  // Run the normal status update
   await _originalUpdateApplicationStatus(applicationId, action, staffId, reason);
 
-  // If this was a Death Certificate approval, mark the citizen deceased
   if (
     app &&
     action === 'approve' &&
@@ -1744,8 +1783,6 @@ export async function updateApplicationStatusWithDeceasedCheck(
     );
   }
 
-  // If this was a Death Certificate rejection but citizen was marked,
-  // reverse the deceased flag (safety net)
   if (
     app &&
     action === 'reject' &&

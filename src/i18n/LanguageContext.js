@@ -15,23 +15,39 @@ export const useLanguage = () => {
 export const LanguageProvider = ({ children }) => {
   const { profile } = useAuth();
   const [language, setLanguage] = useState('en');
+  const [simpleMode, setSimpleMode] = useState(false);
 
-  // Load language from localStorage or Firestore profile
+  // Load language + simple mode from localStorage or Firestore profile
   useEffect(() => {
-    const stored = localStorage.getItem('preferred_language');
-    if (stored && ['en', 'st'].includes(stored)) {
-      setLanguage(stored);
+    const storedLang = localStorage.getItem('preferred_language');
+    if (storedLang && ['en', 'st'].includes(storedLang)) {
+      setLanguage(storedLang);
     } else if (profile?.preferred_language) {
       setLanguage(profile.preferred_language);
     }
+
+    const storedMode = localStorage.getItem('preferred_simple_mode');
+    if (storedMode === 'true' || storedMode === 'false') {
+      setSimpleMode(storedMode === 'true');
+    } else if (typeof profile?.simple_mode === 'boolean') {
+      setSimpleMode(profile.simple_mode);
+    }
   }, [profile]);
+
+  // Apply/remove the CSS class on <body> whenever simpleMode changes
+  useEffect(() => {
+    if (simpleMode) {
+      document.body.classList.add('simple-mode');
+    } else {
+      document.body.classList.remove('simple-mode');
+    }
+  }, [simpleMode]);
 
   const changeLanguage = async (lang) => {
     if (!['en', 'st'].includes(lang)) return;
     setLanguage(lang);
     localStorage.setItem('preferred_language', lang);
 
-    // Save to Firestore if user is logged in
     if (profile?.uid) {
       try {
         await updateDoc(doc(db, 'citizens', profile.uid), {
@@ -43,13 +59,31 @@ export const LanguageProvider = ({ children }) => {
     }
   };
 
+  const toggleSimpleMode = async () => {
+    const next = !simpleMode;
+    setSimpleMode(next);
+    localStorage.setItem('preferred_simple_mode', String(next));
+
+    if (profile?.uid) {
+      try {
+        await updateDoc(doc(db, 'citizens', profile.uid), {
+          simple_mode: next,
+        });
+      } catch (err) {
+        console.error('Failed to save simple mode preference:', err);
+      }
+    }
+  };
+
   const t = (key) => {
     const dict = translations[language] || translations.en;
     return dict[key] || translations.en[key] || key;
   };
 
   return (
-    <LanguageContext.Provider value={{ language, changeLanguage, t }}>
+    <LanguageContext.Provider
+      value={{ language, changeLanguage, t, simpleMode, toggleSimpleMode }}
+    >
       {children}
     </LanguageContext.Provider>
   );

@@ -1,4 +1,4 @@
-/* eslint-disable no-dupe-keys */
+
 export const translations = {
   en: {
     // SIDEBAR GROUPS

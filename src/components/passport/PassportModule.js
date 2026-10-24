@@ -5,6 +5,7 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import {
   submitApplication,
   getMyApplications,
+  resubmitApplication,
   DEPARTMENTS,
   DISTRICTS,
 } from '../../firebase/db';
@@ -16,6 +17,7 @@ import Table from '../common/Table';
 import FormField from '../common/FormField';
 import CloudinaryUpload from '../common/CloudinaryUpload';
 import PaymentBlock from '../common/PaymentBlock';
+import RequestedInfoBanner from '../common/RequestedInfoBanner';
 import VerifiedGuard from '../citizen/VerifiedGuard';
 import '../../styles/module.css';
 
@@ -84,7 +86,6 @@ const computeReadyDate = (speed) => {
   return d;
 };
 
-// Normalise any legacy citizenship value to "Mosotho"
 const getCitizenshipDisplay = (raw) => {
   const value = (raw || '').toLowerCase();
   if (value.includes('mosotho') || value.includes('citizen')) return 'Mosotho';
@@ -104,6 +105,7 @@ const PassportModule = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [lastSubmission, setLastSubmission] = useState(null);
+  const [editingApplication, setEditingApplication] = useState(null);
 
   const fetchApplications = async () => {
     if (!profile) return;
@@ -148,6 +150,25 @@ const PassportModule = () => {
     }
   };
 
+  const handleStartEdit = (app) => {
+    setEditingApplication(app);
+    setMessage('');
+    setLastSubmission(null);
+    if (app.service_type === 'New Passport') setActiveTab('new');
+    else if (app.service_type === 'Passport Renewal') setActiveTab('renewal');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingApplication(null);
+  };
+
+  const handleResubmitted = () => {
+    setEditingApplication(null);
+    setActiveTab('dashboard');
+    setMessage('✓ Your updated application has been resubmitted for review.');
+    fetchApplications();
+  };
+
   const statusColor = (s) => {
     if (s === 'approved' || s === 'completed') return 'green';
     if (s === 'rejected' || s === 'cancelled') return 'red';
@@ -160,6 +181,10 @@ const PassportModule = () => {
     { key: 'new', label: 'New Passport' },
     { key: 'renewal', label: 'Renewal' },
   ];
+
+  const needsInfo = applications.filter(
+    (a) => a.status === 'processing' && (a.notes || a.rejection_reason)
+  );
 
   return (
     <VerifiedGuard serviceName="Passport and Citizenship Office">
@@ -239,37 +264,80 @@ const PassportModule = () => {
           )}
 
           {activeTab === 'dashboard' && (
-            <div className="module-card">
-              <div className="module-section-title">My Passport Applications</div>
-              <Table
-                headers={['Reference', 'Service', 'Status', 'Submitted', 'Action']}
-                rows={applications.map((a) => [
-                  a.application_reference,
-                  a.service_type,
-                  <Badge color={statusColor(a.status)}>{a.status}</Badge>,
-                  a.submitted_at?.toDate?.().toLocaleDateString() || '—',
-                  a.status === 'approved' || a.status === 'completed' ? (
-                    <Link
-                      to={`/certificate/${a.application_reference}`}
-                      style={{ color: '#003366', fontWeight: 'bold', textDecoration: 'underline', fontSize: 13 }}
-                    >
-                      View Document
-                    </Link>
-                  ) : (
-                    <span style={{ color: '#999', fontSize: 12 }}>—</span>
-                  ),
-                ])}
-                emptyMessage="No applications yet."
-              />
-            </div>
+            <>
+              {needsInfo.map((a) => (
+                <RequestedInfoBanner
+                  key={a.id}
+                  application={a}
+                  onEdit={() => handleStartEdit(a)}
+                />
+              ))}
+
+              <div className="module-card">
+                <div className="module-section-title">My Passport Applications</div>
+                <Table
+                  headers={['Reference', 'Service', 'Status', 'Submitted', 'Action']}
+                  rows={applications.map((a) => [
+                    a.application_reference,
+                    a.service_type,
+                    <Badge color={statusColor(a.status)}>{a.status}</Badge>,
+                    a.submitted_at?.toDate?.().toLocaleDateString() || '—',
+                    a.status === 'processing' && (a.notes || a.rejection_reason) ? (
+                      <button
+                        onClick={() => handleStartEdit(a)}
+                        style={{
+                          background: 'linear-gradient(135deg, #ffcc00 0%, #ff9900 100%)',
+                          color: '#003366',
+                          border: 'none',
+                          padding: '6px 14px',
+                          borderRadius: 999,
+                          fontSize: 12,
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 8px rgba(255, 153, 0, 0.35)',
+                        }}
+                      >
+                        ✎ Edit & Resubmit
+                      </button>
+                    ) : a.status === 'approved' || a.status === 'completed' ? (
+                      <Link
+                        to={`/certificate/${a.application_reference}`}
+                        style={{ color: '#003366', fontWeight: 'bold', textDecoration: 'underline', fontSize: 13 }}
+                      >
+                        View Document
+                      </Link>
+                    ) : (
+                      <span style={{ color: '#999', fontSize: 12 }}>—</span>
+                    ),
+                  ])}
+                  emptyMessage="No applications yet."
+                />
+              </div>
+            </>
           )}
 
           {activeTab === 'new' && (
-            <PassportForm mode="new" profile={profile} submitting={loading} onSubmit={submit} />
+            <PassportForm
+              mode="new"
+              profile={profile}
+              submitting={loading}
+              existingApplication={editingApplication?.service_type === 'New Passport' ? editingApplication : null}
+              onSubmit={submit}
+              onCancelEdit={handleCancelEdit}
+              onResubmitted={handleResubmitted}
+            />
           )}
 
           {activeTab === 'renewal' && (
-            <PassportForm mode="renewal" profile={profile} submitting={loading} onSubmit={submit} />
+            <PassportForm
+              mode="renewal"
+              profile={profile}
+              submitting={loading}
+              existingApplication={editingApplication?.service_type === 'Passport Renewal' ? editingApplication : null}
+              onSubmit={submit}
+              onCancelEdit={handleCancelEdit}
+              onResubmitted={handleResubmitted}
+            />
           )}
         </div>
       </Layout>
@@ -280,59 +348,66 @@ const PassportModule = () => {
 // ============================================================
 // PASSPORT FORM
 // ============================================================
-const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
+const PassportForm = ({
+  mode,
+  profile,
+  submitting,
+  existingApplication = null,
+  onSubmit,
+  onCancelEdit,
+  onResubmitted,
+}) => {
   const isRenewal = mode === 'renewal';
+  const isEditing = !!existingApplication;
+  const existingData = existingApplication?.application_data || {};
+  const existingPrev = existingData.previous_passport || {};
+  const existingGuarantor = existingData.guarantor || {};
+  const existingUploads = existingData.documents_uploaded || {};
 
   const [form, setForm] = useState({
-    // Personal (auto-filled)
-    full_name: '',
-    national_id: '',
-    date_of_birth: '',
-    gender: '',
-    citizenship_status: '',
-    residential_address: '',
-    phone_number: '',
-    email: '',
+    full_name: existingData.full_name || '',
+    national_id: existingData.national_id || '',
+    date_of_birth: existingData.date_of_birth || '',
+    gender: existingData.gender || '',
+    citizenship_status: existingData.citizenship_status || '',
+    residential_address: existingData.residential_address || '',
+    phone_number: existingData.phone_number || '',
+    email: existingData.email || '',
 
-    // Passport options
-    passport_type: 'Ordinary',
-    book_format: '32-page',
-    processing_speed: 'Standard',
+    passport_type: existingData.passport_type || 'Ordinary',
+    book_format: existingData.book_format || '32-page',
+    processing_speed: existingData.processing_speed || 'Standard',
 
-    // Travel
-    travel_purpose: '',
-    departure_date: '',
+    travel_purpose: existingData.travel_purpose || '',
+    departure_date: existingData.departure_date || '',
 
-    // Renewal — previous passport
-    old_passport_number: '',
-    old_passport_issued: '',
-    old_passport_expiry: '',
+    old_passport_number: existingPrev.number || '',
+    old_passport_issued: existingPrev.issued_date || '',
+    old_passport_expiry: existingPrev.expiry_date || '',
 
-    // Guarantor
-    guarantor_name: '',
-    guarantor_id: '',
-    guarantor_phone: '',
+    guarantor_name: existingGuarantor.full_name || '',
+    guarantor_id: existingGuarantor.national_id || '',
+    guarantor_phone: existingGuarantor.phone || '',
 
-    // Collection + payment
-    collection_branch: 'Maseru',
-    payment_bank: '',
+    collection_branch: existingData.collection_branch || 'Maseru',
+    payment_bank: existingData.payment?.bank || '',
 
-    // Declarations
-    truth_declaration: false,
-    data_consent: false,
+    truth_declaration: existingData.declarations?.truth || false,
+    data_consent: existingData.declarations?.data_consent || false,
   });
 
-  // Uploads (real files instead of "I have..." checkboxes)
   const [uploads, setUploads] = useState({
-    birth_certificate: null,
-    photos: null,
-    chief_letter: null,
-    old_passport: null,
+    birth_certificate: existingUploads.birth_certificate || null,
+    photos: existingUploads.photos || null,
+    chief_letter: existingUploads.chief_letter || null,
+    old_passport: existingUploads.old_passport || null,
   });
 
-  const [paymentRef] = useState(generatePaymentReference());
+  const [paymentRef] = useState(
+    () => existingData.payment?.reference || generatePaymentReference()
+  );
+  const [resubmitting, setResubmitting] = useState(false);
 
-  // 🌟 Auto-fill from profile
   useAutoFill(profile, form, setForm);
 
   const update = (key, value) => setForm({ ...form, [key]: value });
@@ -402,7 +477,7 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
       payment: {
         reference: paymentRef,
         bank: form.payment_bank,
-        status: 'awaiting_payment',
+        status: existingData.payment?.status || 'awaiting_payment',
       },
       fees,
       estimated_ready_date: readyDate.toISOString(),
@@ -413,7 +488,19 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
       },
     };
 
-    await onSubmit(isRenewal ? 'Passport Renewal' : 'New Passport', payload);
+    if (isEditing) {
+      setResubmitting(true);
+      try {
+        await resubmitApplication(existingApplication.id, payload);
+        if (onResubmitted) onResubmitted();
+      } catch (err) {
+        alert('Failed to resubmit: ' + err.message);
+      } finally {
+        setResubmitting(false);
+      }
+    } else {
+      await onSubmit(isRenewal ? 'Passport Renewal' : 'New Passport', payload);
+    }
   };
 
   const feeRows = [
@@ -431,12 +518,14 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
 
   return (
     <div className="module-card">
+      {isEditing && <EditBanner application={existingApplication} onCancel={onCancelEdit} />}
+
       <div className="module-section-title">
-        {isRenewal ? 'Renew Passport' : 'Apply for a New Passport'}
+        {isEditing ? 'Update Application' : isRenewal ? 'Renew Passport' : 'Apply for a New Passport'}
       </div>
 
       <form onSubmit={handleSubmit}>
-        {/* 1. APPLICANT — auto-filled */}
+        {/* 1 · APPLICANT */}
         <div className="module-section">
           <div className="module-section-title">1 · Applicant</div>
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
@@ -475,7 +564,7 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
           </div>
         </div>
 
-        {/* 2. PASSPORT TYPE */}
+        {/* 2 · PASSPORT TYPE */}
         <div className="module-section">
           <div className="module-section-title">2 · Passport type and format</div>
           <FormField
@@ -503,7 +592,7 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
           </div>
         </div>
 
-        {/* 3. PROCESSING SPEED */}
+        {/* 3 · PROCESSING SPEED */}
         <div className="module-section">
           <div className="module-section-title">3 · Processing speed</div>
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
@@ -518,7 +607,7 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
           </div>
         </div>
 
-        {/* 4. TRAVEL DETAILS */}
+        {/* 4 · TRAVEL */}
         <div className="module-section">
           <div className="module-section-title">4 · Travel details</div>
           <FormField
@@ -538,7 +627,7 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
           />
         </div>
 
-        {/* 5. PREVIOUS PASSPORT (renewal only) */}
+        {/* 5 · PREVIOUS PASSPORT (renewal only) */}
         {isRenewal && (
           <div className="module-section">
             <div className="module-section-title">5 · Previous passport</div>
@@ -566,7 +655,7 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
           </div>
         )}
 
-        {/* 6. UPLOAD DOCUMENTS */}
+        {/* 6 · UPLOAD DOCUMENTS */}
         <div className="module-section">
           <div className="module-section-title">
             {isRenewal ? '6 · Upload your documents' : '5 · Upload your documents'}
@@ -604,7 +693,7 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
           )}
         </div>
 
-        {/* 7. GUARANTOR (new only) */}
+        {/* 7 · GUARANTOR (new only) */}
         {!isRenewal && (
           <div className="module-section">
             <div className="module-section-title">6 · Guarantor</div>
@@ -612,29 +701,13 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
               A guarantor is a person who can confirm your identity. It must be someone who has known you
               for at least 2 years and is not a family member.
             </p>
-            <FormField
-              label="Guarantor Full Name"
-              value={form.guarantor_name}
-              onChange={(v) => update('guarantor_name', v)}
-              required
-            />
-            <FormField
-              label="Guarantor National ID"
-              value={form.guarantor_id}
-              onChange={(v) => update('guarantor_id', v)}
-              required
-            />
-            <FormField
-              label="Guarantor Phone Number"
-              value={form.guarantor_phone}
-              onChange={(v) => update('guarantor_phone', v)}
-              placeholder="e.g. +266 5800 0000"
-              required
-            />
+            <FormField label="Guarantor Full Name" value={form.guarantor_name} onChange={(v) => update('guarantor_name', v)} required />
+            <FormField label="Guarantor National ID" value={form.guarantor_id} onChange={(v) => update('guarantor_id', v)} required />
+            <FormField label="Guarantor Phone Number" value={form.guarantor_phone} onChange={(v) => update('guarantor_phone', v)} placeholder="e.g. +266 5800 0000" required />
           </div>
         )}
 
-        {/* 8. COLLECTION BRANCH */}
+        {/* 8 · COLLECTION BRANCH */}
         <div className="module-section">
           <div className="module-section-title">7 · Collection branch</div>
           <FormField
@@ -651,7 +724,7 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
           </p>
         </div>
 
-        {/* 9. PAYMENT */}
+        {/* 9 · PAYMENT */}
         <div className="module-section">
           <div className="module-section-title">9 · Payment</div>
           <PaymentBlock
@@ -663,7 +736,7 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
           />
         </div>
 
-        {/* 10. DECLARATIONS */}
+        {/* 10 · DECLARATIONS */}
         <div className="module-section" style={{ borderBottom: 'none', paddingBottom: 0 }}>
           <div className="module-section-title">10 · Declarations</div>
           <Checkbox
@@ -678,7 +751,7 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
           />
         </div>
 
-        {/* Estimated ready date notice */}
+        {/* Ready date notice */}
         <div style={{
           background: '#fff8e0',
           border: '1px solid #ffe08a',
@@ -699,9 +772,15 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
         </div>
 
         <SubmitButton
-          canSubmit={canSubmit}
-          submitting={submitting}
-          label={isRenewal ? 'Submit Renewal' : 'Submit Application'}
+          canSubmit={canSubmit && !resubmitting}
+          submitting={submitting || resubmitting}
+          label={
+            isEditing
+              ? 'Resubmit Application'
+              : isRenewal
+              ? 'Submit Renewal'
+              : 'Submit Application'
+          }
         />
       </form>
     </div>
@@ -709,8 +788,42 @@ const PassportForm = ({ mode, profile, submitting, onSubmit }) => {
 };
 
 // ============================================================
-// REUSABLE PIECES
+// SHARED PIECES
 // ============================================================
+const EditBanner = ({ application, onCancel }) => (
+  <div style={{
+    background: '#fff8e0',
+    border: '2px solid #ffcc00',
+    borderRadius: 10,
+    padding: 16,
+    marginBottom: 20,
+  }}>
+    <div style={{ fontSize: 15, fontWeight: 'bold', color: '#7a5a00', marginBottom: 6 }}>
+      ✎ Editing — {application.application_reference}
+    </div>
+    <div style={{ fontSize: 13, color: '#7a5a00', lineHeight: 1.6, marginBottom: 10 }}>
+      <strong>What Passport Office needs:</strong>{' '}
+      {application.notes || application.rejection_reason}
+    </div>
+    <button
+      type="button"
+      onClick={onCancel}
+      style={{
+        background: 'transparent',
+        border: '1px solid #7a5a00',
+        color: '#7a5a00',
+        padding: '6px 14px',
+        borderRadius: 999,
+        fontSize: 12,
+        fontWeight: 'bold',
+        cursor: 'pointer',
+      }}
+    >
+      Cancel editing
+    </button>
+  </div>
+);
+
 const Radio = ({ checked, onChange, label }) => (
   <label style={{
     display: 'flex',

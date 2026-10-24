@@ -16,6 +16,19 @@ import Badge from '../common/Badge';
 import Table from '../common/Table';
 import '../../styles/module.css';
 
+// ============================================================
+// HELPERS
+// ============================================================
+const getCitizenshipDisplay = (raw) => {
+  const value = (raw || '').toLowerCase();
+  if (value.includes('mosotho') || value.includes('citizen')) return 'Mosotho';
+  if (value.includes('resident')) return 'Permanent resident';
+  return 'Mosotho';
+};
+
+// ============================================================
+// MAIN COMPONENT
+// ============================================================
 const StaffHomeAffairs = () => {
   const { profile } = useAuth();
   const [view, setView] = useState('verification');
@@ -113,7 +126,6 @@ const StaffHomeAffairs = () => {
             console.error('Failed to mark citizen as deceased:', e);
           }
         } else if (deceasedName) {
-          // Fallback: search by name
           try {
             const results = await searchCitizens(deceasedName);
             if (results.length === 1) {
@@ -377,7 +389,7 @@ const StaffHomeAffairs = () => {
                             Gender: {c.gender || '—'}
                           </div>
                           <div style={{ fontSize: 13, color: '#666' }}>
-                            Citizenship: {c.citizenship_status || 'Mosotho'}
+                            Citizenship: <strong>{getCitizenshipDisplay(c.citizenship_status)}</strong>
                           </div>
                           <div style={{ fontSize: 13, color: '#666' }}>
                             Submitted: {c.created_at?.toDate?.().toLocaleDateString() || '—'}
@@ -528,7 +540,6 @@ const DocumentReviewModal = ({ application, onClose, onAction }) => {
   };
 
   const handleApprove = () => {
-    // For Death Certificate, ask for one extra confirmation
     if (isDeathCert) {
       setConfirmingDeceased(true);
       return;
@@ -604,7 +615,7 @@ const DocumentReviewModal = ({ application, onClose, onAction }) => {
             <strong>⚠ Important:</strong> Approving this Death Certificate will{' '}
             <strong>immediately mark the deceased citizen as deceased</strong> in the
             system. They will be blocked from all government services across every
-            department. This action should only be taken with verified documentation.
+            department.
           </div>
         )}
 

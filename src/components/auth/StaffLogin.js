@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { loginStaff } from '../../firebase/auth';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { assetPath } from '../../utils/assetPath';
@@ -9,7 +9,12 @@ import Button from '../common/Button';
 
 const StaffLogin = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useLanguage();
+  
+  // Determine where to redirect after successful login
+  const from = location.state?.from?.pathname || '/staff-dashboard';
+
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,7 +29,8 @@ const StaffLogin = () => {
 
     try {
       await loginStaff(formData.email, formData.password);
-      navigate('/staff-dashboard');
+      // Redirect to the saved path (e.g., /staff/police) or fallback to dashboard
+      navigate(from, { replace: true });
     } catch (err) {
       setError(err.message || 'Login failed');
     } finally {

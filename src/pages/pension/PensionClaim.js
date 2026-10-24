@@ -7,6 +7,7 @@ import Layout from '../../components/common/Layout';
 import Card from '../../components/common/Card';
 import Alert from '../../components/common/Alert';
 import FormField from '../../components/common/FormField';
+import CloudinaryUpload from '../../components/common/CloudinaryUpload';
 
 const CLAIM_OPTIONS = [
   { value: CLAIM_TYPES.RETIREMENT, label: 'Retirement Claim', desc: 'Claim your full pension fund when you reach retirement age.' },
@@ -32,10 +33,12 @@ const PensionClaim = () => {
   });
 
   const [medicalReport, setMedicalReport] = useState(false);
-  const [deathCertificate, setDeathCertificate] = useState(false);
-  const [proofOfRelationship, setProofOfRelationship] = useState(false);
 
-  // 🌟 Auto-fill from the citizen's profile — runs once on mount
+  // Real file URLs for the death-claim documents
+  const [deathCertificateUrl, setDeathCertificateUrl] = useState(null);
+  const [proofOfRelationshipUrl, setProofOfRelationshipUrl] = useState(null);
+
+  // Auto-fill from the citizen's profile — runs once on mount
   useAutoFill(profile, form, setForm);
 
   // Mark as prefilled for the "✓ from profile" badge
@@ -62,7 +65,7 @@ const PensionClaim = () => {
     form.bank_account.trim() &&
     (!employerRequired || form.employer_name.trim()) &&
     (claimType !== CLAIM_TYPES.ILL_HEALTH || medicalReport) &&
-    (claimType !== CLAIM_TYPES.DEATH || (deathCertificate && proofOfRelationship));
+    (claimType !== CLAIM_TYPES.DEATH || (deathCertificateUrl && proofOfRelationshipUrl));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -71,9 +74,12 @@ const PensionClaim = () => {
     if (!claimType) return setError('Please select a claim type.');
     if (!form.bank_account.trim()) return setError('Please enter your bank account number.');
     if (employerRequired && !form.employer_name.trim()) return setError('Please enter your employer.');
-    if (claimType === CLAIM_TYPES.ILL_HEALTH && !medicalReport) return setError('Please confirm you have a medical report.');
-    if (claimType === CLAIM_TYPES.DEATH && !deathCertificate) return setError('Please confirm you have the death certificate.');
-    if (claimType === CLAIM_TYPES.DEATH && !proofOfRelationship) return setError('Please confirm proof of relationship.');
+    if (claimType === CLAIM_TYPES.ILL_HEALTH && !medicalReport)
+      return setError('Please confirm you have a medical report.');
+    if (claimType === CLAIM_TYPES.DEATH && !deathCertificateUrl)
+      return setError('Please upload the certified death certificate.');
+    if (claimType === CLAIM_TYPES.DEATH && !proofOfRelationshipUrl)
+      return setError('Please upload proof of relationship to the deceased.');
 
     setSubmitting(true);
     try {
@@ -85,8 +91,8 @@ const PensionClaim = () => {
         documents: {
           bank_account: form.bank_account,
           medical_report: medicalReport,
-          death_certificate: deathCertificate,
-          proof_of_relationship: proofOfRelationship,
+          death_certificate_url: deathCertificateUrl,
+          proof_of_relationship_url: proofOfRelationshipUrl,
         },
         additional_details: { notes: form.notes },
         employer_name: form.employer_name,
@@ -173,13 +179,41 @@ const PensionClaim = () => {
             fromProfile={isFromProfile('employer_name')}
           />
 
+          {/* -------- ILL-HEALTH: checkbox (medical report is declared, not uploaded) -------- */}
           {claimType === CLAIM_TYPES.ILL_HEALTH && (
-            <Checkbox checked={medicalReport} onChange={setMedicalReport} label="I have a supporting medical report from a registered doctor *" />
+            <Checkbox
+              checked={medicalReport}
+              onChange={setMedicalReport}
+              label="I have a supporting medical report from a registered doctor *"
+            />
           )}
+
+          {/* -------- DEATH: real uploads instead of checkboxes -------- */}
           {claimType === CLAIM_TYPES.DEATH && (
             <>
-              <Checkbox checked={deathCertificate} onChange={setDeathCertificate} label="I have the certified death certificate *" />
-              <Checkbox checked={proofOfRelationship} onChange={setProofOfRelationship} label="I can prove my relationship to the deceased *" />
+              <div style={{ marginBottom: 16 }}>
+                <CloudinaryUpload
+                  label="Upload the Certified Death Certificate (JPG, PNG, or PDF) *"
+                  onUpload={(url) => setDeathCertificateUrl(url)}
+                />
+                {deathCertificateUrl && (
+                  <div style={{ fontSize: 12, color: '#006600', fontWeight: 'bold', marginTop: 6 }}>
+                    ✓ Death certificate uploaded
+                  </div>
+                )}
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <CloudinaryUpload
+                  label="Upload Proof of Relationship (e.g. birth certificate, marriage certificate) *"
+                  onUpload={(url) => setProofOfRelationshipUrl(url)}
+                />
+                {proofOfRelationshipUrl && (
+                  <div style={{ fontSize: 12, color: '#006600', fontWeight: 'bold', marginTop: 6 }}>
+                    ✓ Proof of relationship uploaded
+                  </div>
+                )}
+              </div>
             </>
           )}
 
