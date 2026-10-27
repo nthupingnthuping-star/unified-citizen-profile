@@ -2,7 +2,7 @@
   "name": "frontend",
   "version": "0.1.0",
   "private": true,
-  "homepage": ".",
+  "homepage": "https://nthupingnthuping-star.github.io/unified-citizen-profile",
   "dependencies": {
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^6.9.1",
@@ -25,7 +25,8 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d build"
+    "deploy": "gh-pages -d build",
+    "postdeploy": "echo ✅ DEPLOYED SUCCESSFULLY! View your live site at: https://nthupingnthuping-star.github.io/unified-citizen-profile/"
   },
   "eslintConfig": {
     "extends": [
