@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { loginCitizen, resendVerificationEmail } from '../../firebase/auth';
+import { Link, useNavigate } from 'react-router-dom';
+import { loginCitizen, signInWithGoogle } from '../../firebase/auth'; 
 import { useLanguage } from '../../i18n/LanguageContext';
 import Alert from '../common/Alert';
 import { assetPath } from '../../utils/assetPath';
@@ -8,270 +8,121 @@ import LanguageToggleLight from '../common/LanguageToggleLight';
 
 const CitizenLogin = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { t } = useLanguage();
   
-  // Determine where to redirect after successful login
-  const from = location.state?.from?.pathname || '/dashboard';
-
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
-  const [needsVerification, setNeedsVerification] = useState(false);
-  const [resending, setResending] = useState(false);
-  const [resent, setResent] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setNeedsVerification(false);
-    setResent(false);
     setLoading(true);
-
     try {
       await loginCitizen(email, password);
-      // Redirect to the saved path (e.g., /finance) or fallback to dashboard
-      navigate(from, { replace: true });
+      navigate('/dashboard');
     } catch (err) {
-      console.error(err);
-      if (err.code === 'auth/email-not-verified') {
-        setNeedsVerification(true);
-        setError(err.message);
-      } else if (
-        err.code === 'auth/user-not-found' ||
-        err.code === 'auth/wrong-password' ||
-        err.code === 'auth/invalid-credential'
-      ) {
-        setError('Invalid email or password.');
-      } else if (err.code === 'auth/too-many-requests') {
-        setError('Too many failed attempts. Please try again later.');
-      } else {
-        setError(err.message || 'Login failed.');
+      let msg = err.message || 'Login failed.';
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+        msg = 'Incorrect email or password.';
+      } else if (err.code === 'auth/user-not-found') {
+        msg = 'No account found with this email.';
       }
+      setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResend = async () => {
-    setResending(true);
-    setResent(false);
+  const handleGoogleLogin = async () => {
+    setError('');
+    setGoogleLoading(true);
     try {
-      await resendVerificationEmail(email, password);
-      setResent(true);
+      // This function creates the profile if they don't have one, or logs them in
+      await signInWithGoogle();
+      navigate('/dashboard');
     } catch (err) {
-      console.error(err);
-      setError(err.message || 'Failed to resend verification email.');
+      setError(err.message || 'Google login failed.');
     } finally {
-      setResending(false);
+      setGoogleLoading(false);
     }
   };
 
   return (
     <div style={{
-      minHeight: '100vh',
-      position: 'relative',
+      minHeight: '100vh', position: 'relative',
       backgroundImage: `url(${assetPath('/assets/images/government-building.jpg')})`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundAttachment: 'fixed',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 20,
-      overflow: 'hidden',
+      backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, overflow: 'hidden',
     }}>
-      {/* Animated gradient overlay */}
+      
+      {/* Background Overlay */}
       <div style={{
         position: 'absolute', inset: 0,
         background: 'linear-gradient(135deg, rgba(0,51,102,0.92) 0%, rgba(0,85,170,0.85) 50%, rgba(0,51,102,0.92) 100%)',
-        backgroundSize: '200% 200%',
-        animation: 'gradientShift 12s ease infinite',
+        backgroundSize: '200% 200%', animation: 'gradientShift 12s ease infinite',
       }} />
-
-      {/* Floating orbs */}
-      <div style={{
-        position: 'absolute', top: '12%', left: '8%',
-        width: 220, height: 220, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(255,204,0,0.22) 0%, transparent 70%)',
-        animation: 'floatY 7s ease-in-out infinite',
-        pointerEvents: 'none',
-      }} />
-      <div style={{
-        position: 'absolute', bottom: '10%', right: '10%',
-        width: 260, height: 260, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(179,212,255,0.2) 0%, transparent 70%)',
-        animation: 'floatY 9s ease-in-out infinite reverse',
-        pointerEvents: 'none',
-      }} />
-
-      {/* Top bar: Language + Back to Home */}
-      <div style={{
-        position: 'absolute', top: 20, right: 20, zIndex: 20,
-        display: 'flex', alignItems: 'center', gap: 12,
-      }}>
-        <LanguageToggleLight />
-        <Link to="/" style={{
-          background: 'rgba(255,255,255,0.12)',
-          border: '1px solid rgba(255,255,255,0.35)',
-          color: 'white',
-          padding: '7px 16px',
-          borderRadius: 999,
-          fontSize: 13,
-          fontWeight: 'bold',
-          textDecoration: 'none',
-          backdropFilter: 'blur(8px)',
-          transition: 'transform 0.2s ease, background 0.2s ease',
-        }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(255,255,255,0.22)';
-            e.currentTarget.style.transform = 'translateY(-1px)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
-            e.currentTarget.style.transform = 'translateY(0)';
-          }}
-        >
-          ← {t('back_to_home') || 'Back to Home'}
-        </Link>
-      </div>
-
-      {/* Global keyframes */}
+      
       <style>{`
-        @keyframes gradientShift {
-          0%, 100% { background-position: 0% 50%; }
-          50%      { background-position: 100% 50%; }
-        }
-        @keyframes floatY {
-          0%, 100% { transform: translateY(0); }
-          50%      { transform: translateY(-14px); }
-        }
-        @keyframes cardEnter {
-          from { opacity: 0; transform: translateY(18px) scale(0.98); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes shimmer {
-          0%   { left: -100%; }
-          60%  { left: 100%; }
-          100% { left: 100%; }
-        }
-        .auth-card {
-          animation: cardEnter 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-        }
-        .auth-input {
-          transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-        }
-        .auth-input:focus {
-          outline: none;
-          border-color: #0055aa;
-          box-shadow: 0 0 0 4px rgba(0, 85, 170, 0.12);
-          background: #fbfdff;
-        }
-        .auth-submit {
-          position: relative;
-          overflow: hidden;
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        .auth-submit:not(:disabled):hover {
-          transform: translateY(-2px);
-          box-shadow: 0 10px 24px rgba(0, 51, 102, 0.32) !important;
-        }
-        .auth-submit:not(:disabled)::after {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: -100%;
-          width: 100%;
-          height: 100%;
-          background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%);
-          animation: shimmer 3s ease-in-out infinite;
-        }
+        @keyframes gradientShift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+        @keyframes cardEnter { from { opacity: 0; transform: translateY(18px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .auth-input { transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+        .auth-input:focus { outline: none; border-color: #0055aa; box-shadow: 0 0 0 4px rgba(0, 85, 170, 0.12); }
       `}</style>
 
-      {/* CARD */}
-      <div className="auth-card" style={{
-        position: 'relative',
-        background: 'white',
-        borderRadius: 16,
-        padding: 40,
-        maxWidth: 440,
-        width: '100%',
-        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.25)',
-        zIndex: 2,
+      <div style={{ position: 'absolute', top: 20, right: 20, zIndex: 20 }}>
+        <LanguageToggleLight />
+      </div>
+
+      <div style={{
+        position: 'relative', background: 'white', borderRadius: 16, padding: 40,
+        maxWidth: 480, width: '100%', boxShadow: '0 20px 60px rgba(0, 0, 0, 0.25)',
+        animation: 'cardEnter 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both', zIndex: 2,
       }}>
-        {/* Coat of arms */}
-        <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <img
-            src={assetPath('/assets/logos/lesotho-coat-of-arms.png')}
-            alt="Lesotho"
-            style={{
-              height: 70,
-              marginBottom: 10,
-              filter: 'drop-shadow(0 4px 12px rgba(0, 51, 102, 0.18))',
-            }}
-            onError={(e) => { e.target.style.display = 'none'; }}
-          />
+        
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <img src={assetPath('/assets/logos/lesotho-coat-of-arms.png')} alt="Lesotho" style={{ height: 60, marginBottom: 12 }} onError={(e) => { e.target.style.display = 'none'; }} />
+          <h1 style={{ color: '#003366', margin: 0, fontSize: 24 }}>Welcome Back</h1>
+          <p style={{ color: '#666', fontSize: 14, marginTop: 8 }}>Log in to access your government services</p>
         </div>
 
-        <h1 style={{
-          color: '#003366',
-          marginTop: 0,
-          textAlign: 'center',
-          fontSize: 28,
-          letterSpacing: '-0.02em',
-        }}>
-          {t('welcome_back') || 'Welcome back'}
-        </h1>
-        <p style={{ color: '#666', fontSize: 14, textAlign: 'center', marginTop: 0 }}>
-          Log in to your citizen profile
-        </p>
+        {error && <Alert type="error" onClose={() => setError('')}>{error}</Alert>}
 
-        {error && !needsVerification && (
-          <Alert type="error" onClose={() => setError('')}>{error}</Alert>
-        )}
+        {/* GOOGLE LOGIN BUTTON */}
+        <button
+          type="button"
+          onClick={handleGoogleLogin}
+          disabled={googleLoading}
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+            background: 'white', color: '#3c4043', border: '1px solid #dadce0', padding: '12px 24px',
+            borderRadius: 8, fontSize: 15, fontWeight: 500, cursor: googleLoading ? 'not-allowed' : 'pointer',
+            marginBottom: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', transition: 'background 0.2s ease',
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = '#f8f9fa'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+        >
+          <svg width="20" height="20" viewBox="0 0 48 48">
+            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+          </svg>
+          {googleLoading ? 'Connecting...' : 'Continue with Google'}
+        </button>
 
-        {needsVerification && (
-          <div style={{
-            background: '#fff8e0',
-            border: '1px solid #ffe08a',
-            borderRadius: 8,
-            padding: 16,
-            marginBottom: 20,
-            fontSize: 13,
-            color: '#7a5a00',
-          }}>
-            <strong>Email not verified</strong>
-            <p style={{ margin: '8px 0 12px 0' }}>{error}</p>
-            {resent ? (
-              <div style={{ color: '#006600', fontWeight: 'bold' }}>
-                ✓ Verification email sent again. Check your inbox.
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={handleResend}
-                disabled={resending}
-                style={{
-                  background: resending ? '#999' : '#003366',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 16px',
-                  borderRadius: 6,
-                  fontSize: 13,
-                  fontWeight: 'bold',
-                  cursor: resending ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {resending ? 'Sending...' : 'Resend verification email'}
-              </button>
-            )}
-          </div>
-        )}
+        {/* DIVIDER */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+          <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
+          <span style={{ fontSize: 13, color: '#94a3b8' }}>OR USE EMAIL</span>
+          <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
+        </div>
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 18 }}>
-            <label style={labelStyle}>Email</label>
+            <label style={labelStyle}>Email Address</label>
             <input
               className="auth-input"
               type="email"
@@ -279,9 +130,10 @@ const CitizenLogin = () => {
               onChange={(e) => setEmail(e.target.value)}
               required
               style={inputStyle}
+              placeholder="you@example.com"
             />
           </div>
-
+          
           <div style={{ marginBottom: 18 }}>
             <label style={labelStyle}>Password</label>
             <input
@@ -291,24 +143,18 @@ const CitizenLogin = () => {
               onChange={(e) => setPassword(e.target.value)}
               required
               style={inputStyle}
+              placeholder="••••••••"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="auth-submit"
             style={{
-              width: '100%',
-              background: loading ? '#999' : 'linear-gradient(135deg, #003366 0%, #0055aa 100%)',
-              color: 'white',
-              border: 'none',
-              padding: '14px 24px',
-              borderRadius: 999,
-              fontSize: 16,
-              fontWeight: 'bold',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              boxShadow: loading ? 'none' : '0 4px 14px rgba(0, 51, 102, 0.25)',
+              width: '100%', background: loading ? '#999' : 'linear-gradient(135deg, #003366 0%, #0055aa 100%)',
+              color: 'white', border: 'none', padding: '14px 24px', borderRadius: 999,
+              fontSize: 16, fontWeight: 'bold', cursor: loading ? 'not-allowed' : 'pointer',
+              marginTop: 8,
             }}
           >
             {loading ? 'Logging in...' : 'Log In'}
@@ -316,31 +162,21 @@ const CitizenLogin = () => {
         </form>
 
         <p style={{ textAlign: 'center', marginTop: 24, fontSize: 14, color: '#666' }}>
-          Don't have an account?{' '}
-          <Link to="/register" style={{ color: '#0055aa', fontWeight: 'bold' }}>
-            Register
+          Don't have an account? <Link to="/register" style={{ color: '#0055aa', fontWeight: 'bold' }}>Register</Link>
+        </p>
+        
+        <p style={{ textAlign: 'center', marginTop: 12, fontSize: 13 }}>
+          <Link to="/" style={{ color: '#003366', fontWeight: 'bold', textDecoration: 'none' }}>
+            ← Back to Home
           </Link>
         </p>
 
-        <p style={{ textAlign: 'center', marginTop: 12, fontSize: 13 }}>
-          <Link to="/" style={{ color: '#003366', fontWeight: 'bold', textDecoration: 'none' }}>
-            ← {t('back_to_home') || 'Back to Home'}
-          </Link>
-        </p>
       </div>
     </div>
   );
 };
 
 const labelStyle = { display: 'block', fontSize: 13, fontWeight: 'bold', color: '#333', marginBottom: 6 };
-const inputStyle = {
-  width: '100%',
-  padding: 12,
-  border: '1px solid #ccc',
-  borderRadius: 8,
-  fontSize: 14,
-  boxSizing: 'border-box',
-  background: 'white',
-};
+const inputStyle = { width: '100%', padding: 12, border: '1px solid #ccc', borderRadius: 8, fontSize: 14, boxSizing: 'border-box', background: 'white' };
 
 export default CitizenLogin;

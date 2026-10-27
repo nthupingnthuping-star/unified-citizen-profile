@@ -48,6 +48,12 @@ const Layout = ({ children, title }) => {
         { path: '/police', labelKey: 'police_clearance_reports' },
       ],
     },
+    {
+      groupKey: 'group_help', // <-- ADDED CITIZEN HELP GROUP
+      items: [
+        { path: '/help', labelKey: 'help_support' },
+      ],
+    },
   ];
 
   const handleLogout = () => {

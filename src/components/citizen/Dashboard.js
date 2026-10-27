@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom'; // Added Link
+import { useNavigate, Link } from 'react-router-dom'; 
 import { useAuth } from '../../contexts/AuthContext';
 import { assetPath } from '../../utils/assetPath';
 import { saveCitizenPhoto } from '../../firebase/db';
@@ -123,15 +123,10 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Available Services */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 20, color: '#3b82f6' }}>▦</span>
-              <h3 style={{ margin: 0, fontSize: 20, color: '#0f172a', fontWeight: 800 }}>Available Services</h3>
-            </div>
-            <button onClick={() => navigate('/search')} style={{ background: 'transparent', border: '1px solid #cbd5e1', color: '#3b82f6', padding: '6px 16px', borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-              View All Services →
-            </button>
+          {/* Available Services (Header without View All Button) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+            <span style={{ fontSize: 20, color: '#3b82f6' }}>▦</span>
+            <h3 style={{ margin: 0, fontSize: 20, color: '#0f172a', fontWeight: 800 }}>Available Services</h3>
           </div>
           
           <p style={{ margin: '0 0 24px 0', fontSize: 14, color: '#64748b' }}>
@@ -183,22 +178,7 @@ const Dashboard = () => {
               </div>
             </button>
 
-            {/* More Services */}
-            <button
-              onClick={() => navigate('/search')}
-              style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20, display: 'flex', alignItems: 'flex-start', gap: 16, cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s ease', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#bfdbfe'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'translateY(0)'; }}
-            >
-              <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#f1f5f9', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>▦</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <h4 style={{ margin: 0, fontSize: 15, color: '#0f172a', fontWeight: 700 }}>More Services</h4>
-                  <span style={{ color: '#3b82f6', fontSize: 16 }}>→</span>
-                </div>
-                <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>Explore all government services and ministries.</p>
-              </div>
-            </button>
+            {/* REMOVED "More Services" BUTTON HERE */}
 
           </div>
         </div>

@@ -48,6 +48,8 @@ import StaffPensions from '../components/staff/StaffPensions';
 import StaffAppointments from '../components/staff/StaffAppointments';
 import StaffLookup from '../pages/staff/StaffLookup';
 import StaffProfile from '../pages/staff/StaffProfile';
+import StaffHelp from '../pages/staff/StaffHelp';
+import StaffSupport from '../pages/staff/StaffSupport'; // <-- ADDED IMPORT
 
 // Staff Analytics
 import StaffHomeAffairsAnalytics from '../components/staff/StaffHomeAffairsAnalytics';
@@ -102,7 +104,6 @@ const AppRoutes = () => {
           CITIZEN PROTECTED ROUTES
       ========================================= */}
       <Route element={<ProtectedRoute />}>
-        {/* Note: The ProtectedRoute component handles redirecting staff away from these routes */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/access-history" element={<AccessHistory />} />
         <Route path="/notifications" element={<NotificationsPage />} />
@@ -147,6 +148,10 @@ const AppRoutes = () => {
         
         <Route path="/staff/lookup" element={<StaffLookup />} />
         <Route path="/staff/appointments" element={<StaffAppointments />} />
+        
+        {/* Help & Support Routes */}
+        <Route path="/staff/help" element={<StaffHelp />} />
+        <Route path="/staff/support" element={<StaffSupport />} /> {/* <-- ADDED ROUTE */}
 
         {/* Analytics */}
         <Route path="/staff/analytics" element={<StaffFinanceAnalytics />} />

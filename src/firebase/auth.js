@@ -5,8 +5,10 @@ import {
   onAuthStateChanged,
   updateProfile,
   sendEmailVerification,
+  GoogleAuthProvider,
+  signInWithPopup,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
 
 // ============================================================
@@ -49,7 +51,6 @@ export async function registerCitizen({
     created_at: serverTimestamp(),
   });
 
-  // Send verification email
   try {
     await sendEmailVerification(user);
     console.log('✉️ Verification email sent to', email);
@@ -69,7 +70,6 @@ export async function loginCitizen(email, password) {
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
   const user = userCredential.user;
 
-  // STRICT: block unverified citizen accounts
   if (!user.emailVerified) {
     await signOut(auth);
     const err = new Error(
@@ -101,7 +101,7 @@ export async function resendVerificationEmail(email, password) {
 }
 
 // ============================================================
-// STAFF LOGIN — no email verification required
+// STAFF LOGIN
 // ============================================================
 export async function loginStaff(email, password) {
   console.log('🔐 Staff login:', email);
@@ -121,11 +121,61 @@ export async function loginStaff(email, password) {
     throw new Error('This account is not a staff account');
   }
 
-  // Staff accounts are created by administrators, so they do not require
-  // email verification. Only self-registered citizens do.
-
   console.log('✅ Staff logged in:', user.uid, '| Dept:', data.department_id);
   return { user, staffData: data };
+}
+
+// ============================================================
+// GOOGLE SIGN IN / SIGN UP (WITH PHOTO URL)
+// ============================================================
+export async function signInWithGoogle(extraDetails = {}) {
+  console.log('🔐 Attempting Google Sign-In');
+  const provider = new GoogleAuthProvider();
+
+  try {
+    const result = await signInWithPopup(auth, provider);
+    const user = result.user;
+
+    const citizenRef = doc(db, 'citizens', user.uid);
+    const citizenSnap = await getDoc(citizenRef);
+
+    if (!citizenSnap.exists()) {
+      console.log('📝 Creating new citizen profile for Google user:', user.email);
+      
+      await setDoc(citizenRef, {
+        uid: user.uid,
+        email: user.email,
+        full_name: user.displayName || extraDetails.full_name || 'Google User',
+        photo_url: user.photoURL || null, // SAVES GOOGLE PROFILE PICTURE
+        national_id: extraDetails.national_id || '',
+        date_of_birth: extraDetails.date_of_birth || '',
+        gender: extraDetails.gender || 'Male',
+        residential_address: extraDetails.residential_address || '',
+        phone_number: extraDetails.phone_number || '',
+        citizenship_status: 'Mosotho',
+        verified_by_home_affairs: false, 
+        verification_date: null,
+        verified_by: null,
+        type: 'citizen',
+        department_id: null,
+        role: null,
+        is_active: true,
+        created_at: serverTimestamp(),
+      });
+    } else {
+      // If they exist but don't have a photo, update it from Google
+      const existingData = citizenSnap.data();
+      if (!existingData.photo_url && user.photoURL) {
+        await updateDoc(citizenRef, { photo_url: user.photoURL });
+      }
+    }
+
+    console.log('✅ Google user logged in:', user.uid);
+    return user;
+  } catch (error) {
+    console.error('❌ Google Sign-In Error:', error);
+    throw error;
+  }
 }
 
 // ============================================================

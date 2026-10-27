@@ -12,6 +12,7 @@ import Layout from '../../components/common/Layout';
 import Card from '../../components/common/Card';
 import Alert from '../../components/common/Alert';
 import FormField from '../../components/common/FormField';
+import CloudinaryUpload from '../../components/common/CloudinaryUpload'; // <-- IMPORT ADDED
 
 const BRANCHES = Object.keys(RETIREMENT_AGES);
 const BRANCH_OPTIONS = BRANCHES.map((b) => ({
@@ -30,6 +31,7 @@ const PensionFundProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [prefilled, setPrefilled] = useState(false);
 
+  // Added document uploads to form state
   const [form, setForm] = useState({
     employment_branch: 'Public Service',
     employer_name: '',
@@ -38,15 +40,14 @@ const PensionFundProfile = () => {
     total_member_contributions: '',
     total_employer_contributions: '',
     investment_returns: '',
+    payslip_url: null,
+    employment_letter_url: null,
   });
 
-  // 🌟 Auto-fill from the citizen's profile — runs once on mount
   useAutoFill(profile, form, setForm);
 
-  // Mark as "prefilled" once profile data has landed — for the "✓ from profile" badge
   useEffect(() => {
     if (profile && !prefilled) {
-      // Give the hook a tick to run first
       const t = setTimeout(() => setPrefilled(true), 50);
       return () => clearTimeout(t);
     }
@@ -57,6 +58,14 @@ const PensionFundProfile = () => {
     try {
       const data = await getMyFundRecord(user.uid);
       setRecord(data);
+      if (data) {
+        // Load existing documents if editing
+        setForm(prev => ({
+          ...prev,
+          payslip_url: data.documents_uploaded?.payslip_url || null,
+          employment_letter_url: data.documents_uploaded?.employment_letter_url || null,
+        }));
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -67,7 +76,6 @@ const PensionFundProfile = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [user]);
 
-  // Only show the "✓ from profile" badge on new records (not when editing an existing one)
   const isFromProfile = (key) => {
     if (isEditing || record) return false;
     if (!prefilled || !profile) return false;
@@ -90,6 +98,8 @@ const PensionFundProfile = () => {
       total_member_contributions: String(record.total_member_contributions || ''),
       total_employer_contributions: String(record.total_employer_contributions || ''),
       investment_returns: String(record.investment_returns || ''),
+      payslip_url: record.documents_uploaded?.payslip_url || null,
+      employment_letter_url: record.documents_uploaded?.employment_letter_url || null,
     });
     setError('');
     setMessage('');
@@ -132,6 +142,11 @@ const PensionFundProfile = () => {
     if (!form.employer_name.trim()) return setError('Please enter your employer name.');
     if (!form.months_of_service || Number(form.months_of_service) < 1)
       return setError('Please enter your months of service.');
+      
+    // FRAUD PREVENTION CHECK
+    if (!form.payslip_url && !form.employment_letter_url) {
+      return setError('You must upload at least one proof of employment (Payslip or Employment Letter).');
+    }
 
     setSaving(true);
     try {
@@ -143,6 +158,11 @@ const PensionFundProfile = () => {
         total_member_contributions: Number(form.total_member_contributions) || 0,
         total_employer_contributions: Number(form.total_employer_contributions) || 0,
         investment_returns: Number(form.investment_returns) || 0,
+        // SAVE DOCUMENTS
+        documents_uploaded: {
+          payslip_url: form.payslip_url,
+          employment_letter_url: form.employment_letter_url,
+        }
       });
 
       await saveCitizenMasterData(user.uid, {
@@ -175,7 +195,6 @@ const PensionFundProfile = () => {
     );
   }
 
-  // ============ FORM (create or edit) ============
   if (!record || isEditing) {
     const estimatedTotal =
       (Number(form.total_member_contributions) || 0) +
@@ -232,71 +251,35 @@ const PensionFundProfile = () => {
             />
 
             <div style={{ background: '#f0f6ff', padding: 16, borderRadius: 6, marginBottom: 18 }}>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: 10,
-                marginBottom: 12,
-              }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
                 <div style={{ fontSize: 13, fontWeight: 'bold', color: '#003366' }}>
                   Total contributions to date
                 </div>
-                <button
-                  type="button"
-                  onClick={handleRecalculate}
-                  style={{
-                    background: '#0066cc',
-                    color: 'white',
-                    border: 'none',
-                    padding: '8px 14px',
-                    borderRadius: 4,
-                    fontSize: 12,
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                  }}
-                >
+                <button type="button" onClick={handleRecalculate} style={{ background: '#0066cc', color: 'white', border: 'none', padding: '8px 14px', borderRadius: 4, fontSize: 12, fontWeight: 'bold', cursor: 'pointer' }}>
                   ↻ Estimate from months × monthly
                 </button>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-                <FormField
-                  label="Member Contributions (M)"
-                  type="number"
-                  value={form.total_member_contributions}
-                  onChange={(v) => setForm({ ...form, total_member_contributions: v })}
-                />
-                <FormField
-                  label="Employer Contributions (M)"
-                  type="number"
-                  value={form.total_employer_contributions}
-                  onChange={(v) => setForm({ ...form, total_employer_contributions: v })}
-                />
-                <FormField
-                  label="Investment Returns (M)"
-                  type="number"
-                  value={form.investment_returns}
-                  onChange={(v) => setForm({ ...form, investment_returns: v })}
-                />
+                <FormField label="Member Contributions (M)" type="number" value={form.total_member_contributions} onChange={(v) => setForm({ ...form, total_member_contributions: v })} />
+                <FormField label="Employer Contributions (M)" type="number" value={form.total_employer_contributions} onChange={(v) => setForm({ ...form, total_employer_contributions: v })} />
+                <FormField label="Investment Returns (M)" type="number" value={form.investment_returns} onChange={(v) => setForm({ ...form, investment_returns: v })} />
               </div>
 
-              <div style={{
-                marginTop: 12,
-                padding: '10px 14px',
-                background: 'white',
-                border: '1px solid #cce0ff',
-                borderRadius: 6,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}>
+              <div style={{ marginTop: 12, padding: '10px 14px', background: 'white', border: '1px solid #cce0ff', borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 13, color: '#666' }}>Estimated total fund credit:</span>
-                <span style={{ fontSize: 18, fontWeight: 'bold', color: '#003366' }}>
-                  M {estimatedTotal.toLocaleString()}
-                </span>
+                <span style={{ fontSize: 18, fontWeight: 'bold', color: '#003366' }}>M {estimatedTotal.toLocaleString()}</span>
               </div>
+            </div>
+
+            {/* NEW: REQUIRED DOCUMENTS */}
+            <div style={{ marginTop: 20, padding: 16, background: '#fff8e0', borderRadius: 8, border: '1px solid #ffe08a' }}>
+              <h3 style={{ fontSize: 16, marginTop: 0, color: '#7a5a00' }}>Required Proof of Employment</h3>
+              <p style={{ fontSize: 13, color: '#7a5a00', marginBottom: 16 }}>
+                To prevent fraud, you must upload at least one document to prove you work(ed) here.
+              </p>
+              <CloudinaryUpload label="Latest Payslip (JPG, PNG, PDF)" onUpload={(url) => setForm({ ...form, payslip_url: url })} />
+              <CloudinaryUpload label="Employment Letter (JPG, PNG, PDF)" onUpload={(url) => setForm({ ...form, employment_letter_url: url })} />
             </div>
 
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 24 }}>
@@ -315,7 +298,6 @@ const PensionFundProfile = () => {
     );
   }
 
-  // ============ READ-ONLY VIEW ============
   return (
     <Layout title="My Pension Fund Profile">
       {message && <Alert type="success" onClose={() => setMessage('')}>{message}</Alert>}
@@ -324,9 +306,7 @@ const PensionFundProfile = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
           <div>
             <div style={mini}>Member</div>
-            <div style={{ fontSize: 18, fontWeight: 'bold', color: '#003366' }}>
-              {profile?.full_name || '—'}
-            </div>
+            <div style={{ fontSize: 18, fontWeight: 'bold', color: '#003366' }}>{profile?.full_name || '—'}</div>
             <div style={{ fontSize: 13, color: '#666' }}>Member No: {record.member_number}</div>
           </div>
           <div style={{ textAlign: 'right' }}>
@@ -340,18 +320,10 @@ const PensionFundProfile = () => {
         </div>
       </Card>
 
-      {record.verification_status === 'pending' && (
-        <div style={{ marginTop: 16 }}><Alert type="warning">Your fund record is awaiting verification.</Alert></div>
-      )}
-      {record.verification_status === 'needs_info' && (
-        <div style={{ marginTop: 16 }}><Alert type="warning">Pensions Department requests more information: {record.verification_notes}</Alert></div>
-      )}
-      {record.verification_status === 'verified' && (
-        <div style={{ marginTop: 16 }}><Alert type="success">Your fund record is verified.</Alert></div>
-      )}
-      {record.verification_status === 'rejected' && (
-        <div style={{ marginTop: 16 }}><Alert type="error">Your record was rejected. Reason: {record.verification_notes}</Alert></div>
-      )}
+      {record.verification_status === 'pending' && <div style={{ marginTop: 16 }}><Alert type="warning">Your fund record is awaiting verification.</Alert></div>}
+      {record.verification_status === 'needs_info' && <div style={{ marginTop: 16 }}><Alert type="warning">Pensions Department requests more information: {record.verification_notes}</Alert></div>}
+      {record.verification_status === 'verified' && <div style={{ marginTop: 16 }}><Alert type="success">Your fund record is verified.</Alert></div>}
+      {record.verification_status === 'rejected' && <div style={{ marginTop: 16 }}><Alert type="error">Your record was rejected. Reason: {record.verification_notes}</Alert></div>}
 
       <div style={{ marginTop: 20 }}>
         <Card title="Employment Details">

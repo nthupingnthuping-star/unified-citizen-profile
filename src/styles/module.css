@@ -1,615 +1,326 @@
 /* ============================================================
-   MODULE GLOBAL STYLES
-   Shared across Police, Traffic, Pensions, Passport, Home
-   Affairs, and Finance modules.
+   MODULE GLOBAL STYLES & MODERN WIZARD
    ============================================================ */
 
-/* ---------- ROOT ---------- */
 .module-root {
-  max-width: 1100px;
+  max-width: 900px;
   margin: 0 auto;
   padding: 24px 20px 80px;
-  animation: moduleFadeIn 0.5s ease both;
+  animation: fadeIn 0.4s ease both;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-@keyframes moduleFadeIn {
-  from { opacity: 0; transform: translateY(12px); }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ---------- HEADER ---------- */
-.module-header {
-  position: relative;
-  padding: 36px 32px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, #003366 0%, #0055aa 55%, #003366 100%);
-  background-size: 200% 200%;
-  color: white;
-  margin-bottom: 24px;
-  overflow: hidden;
-  box-shadow: 0 12px 36px rgba(0, 51, 102, 0.22);
-  animation: gradientShift 12s ease infinite;
-}
-
-@keyframes gradientShift {
-  0%, 100% { background-position: 0% 50%; }
-  50%      { background-position: 100% 50%; }
-}
-
-.module-header::before {
-  content: '';
-  position: absolute;
-  top: -60px;
-  right: -60px;
-  width: 220px;
-  height: 220px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 204, 0, 0.22) 0%, transparent 70%);
-  animation: floatOrb 6s ease-in-out infinite;
-  pointer-events: none;
-}
-
-.module-header::after {
-  content: '';
-  position: absolute;
-  bottom: -80px;
-  left: -40px;
-  width: 180px;
-  height: 180px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(179, 212, 255, 0.18) 0%, transparent 70%);
-  animation: floatOrb 8s ease-in-out infinite reverse;
-  pointer-events: none;
-}
-
-@keyframes floatOrb {
-  0%, 100% { transform: translate(0, 0); }
-  50%      { transform: translate(-12px, 14px); }
-}
-
-.module-header h1 {
-  position: relative;
-  margin: 0 0 6px 0;
-  font-size: clamp(22px, 3vw, 32px);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: #fff;
-  z-index: 1;
-}
-
-.module-header p {
-  position: relative;
-  margin: 0;
-  font-size: 15px;
-  color: #cfe0ff;
-  z-index: 1;
-}
-
-/* ---------- TABS ---------- */
-.module-tabs {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  padding: 8px;
-  border-radius: 14px;
-  background: #f0f4fa;
-  margin-bottom: 22px;
-  box-shadow: inset 0 1px 3px rgba(0, 51, 102, 0.06);
-}
-
-.module-tab {
-  position: relative;
-  padding: 10px 20px;
-  border-radius: 10px;
-  border: none;
-  background: transparent;
-  color: #335;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: color 0.2s ease, background 0.25s ease, transform 0.2s ease;
-  white-space: nowrap;
-}
-
-.module-tab:hover {
-  background: rgba(0, 85, 170, 0.08);
-  color: #003366;
-  transform: translateY(-1px);
-}
-
-.module-tab.active {
-  background: linear-gradient(135deg, #003366 0%, #0055aa 100%);
-  color: white;
-  box-shadow: 0 6px 18px rgba(0, 51, 102, 0.28);
-}
-
-.module-tab.active::after {
-  content: '';
-  position: absolute;
-  bottom: 6px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #ffcc00;
-  animation: tabPulse 2s ease-in-out infinite;
-}
-
-@keyframes tabPulse {
-  0%, 100% { opacity: 1; transform: translateX(-50%) scale(1); }
-  50%      { opacity: 0.5; transform: translateX(-50%) scale(1.6); }
-}
-
-/* ---------- CARD ---------- */
-.module-card {
-  position: relative;
+/* ---------- HEADER (The blue card at the top of the form) ---------- */
+.wizard-card {
   background: white;
   border-radius: 16px;
-  padding: 28px 26px;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 18px rgba(0, 51, 102, 0.07),
-              0 1px 3px rgba(0, 51, 102, 0.05);
-  border: 1px solid rgba(0, 51, 102, 0.06);
-  animation: cardRise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  box-shadow: 0 10px 30px rgba(0, 51, 102, 0.08);
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  margin-bottom: 24px;
 }
 
-@keyframes cardRise {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-.module-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 24px;
-  right: 24px;
-  height: 3px;
-  border-radius: 0 0 4px 4px;
-  background: linear-gradient(90deg, #003366 0%, #ffcc00 50%, #003366 100%);
-  opacity: 0.85;
-}
-
-/* ---------- SECTION ---------- */
-.module-section {
-  padding: 20px 0;
-  border-bottom: 1px dashed #e3ebf4;
-}
-
-.module-section:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-/* ---------- SECTION TITLE ---------- */
-.module-section-title {
-  position: relative;
-  display: inline-block;
-  font-size: 15px;
-  font-weight: 800;
-  color: #003366;
-  margin-bottom: 16px;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  padding-left: 14px;
-}
-
-.module-section-title::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 4px;
-  height: 18px;
-  border-radius: 4px;
-  background: linear-gradient(180deg, #003366 0%, #0055aa 100%);
-  box-shadow: 0 0 0 3px rgba(0, 85, 170, 0.1);
-}
-
-/* ---------- FORM FIELDS ---------- */
-.module-card input[type="text"],
-.module-card input[type="number"],
-.module-card input[type="email"],
-.module-card input[type="tel"],
-.module-card input[type="date"],
-.module-card input[type="datetime-local"],
-.module-card input[type="password"],
-.module-card select,
-.module-card textarea {
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-}
-
-.module-card input:focus,
-.module-card select:focus,
-.module-card textarea:focus {
-  outline: none;
-  border-color: #0055aa !important;
-  box-shadow: 0 0 0 4px rgba(0, 85, 170, 0.12);
-  background: #fbfdff;
-}
-
-/* ---------- CHECKBOX / RADIO ---------- */
-.module-card input[type="checkbox"],
-.module-card input[type="radio"] {
-  accent-color: #0055aa;
-  cursor: pointer;
-  width: 16px;
-  height: 16px;
-}
-
-/* ---------- SUBMIT BUTTON SHIMMER ---------- */
-.module-card button[type="submit"] {
+.wizard-header {
+  background: white;
+  padding: 32px 40px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  border-bottom: 1px solid #f1f5f9;
   position: relative;
   overflow: hidden;
 }
 
-.module-card button[type="submit"]::after {
+/* Subtle mountain background effect */
+.wizard-header::after {
   content: '';
   position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
+  right: 0;
+  bottom: 0;
+  width: 300px;
   height: 100%;
-  background: linear-gradient(90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.28) 50%,
-    transparent 100%);
-  transition: left 0.6s ease;
+  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><polygon fill="%23f8fafc" points="0,100 30,40 60,70 100,20 100,100"/></svg>') no-repeat right bottom;
+  background-size: cover;
+  opacity: 0.8;
+  z-index: 0;
   pointer-events: none;
 }
 
-.module-card button[type="submit"]:not(:disabled):hover::after {
-  left: 100%;
-}
-
-/* ---------- TABLE ---------- */
-.module-card table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  font-size: 14px;
-}
-
-.module-card thead th {
-  text-align: left;
-  padding: 14px 12px;
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #556;
-  background: #f4f8fd;
-  border-bottom: 1px solid #e3ebf4;
-}
-
-.module-card thead th:first-child {
-  border-top-left-radius: 10px;
-}
-.module-card thead th:last-child {
-  border-top-right-radius: 10px;
-}
-
-.module-card tbody tr {
-  transition: background 0.2s ease, transform 0.2s ease;
-}
-
-.module-card tbody tr:hover {
-  background: #f8fbff;
-}
-
-.module-card tbody td {
-  padding: 14px 12px;
-  border-bottom: 1px solid #eef3f9;
-  color: #223;
-  vertical-align: middle;
-}
-
-.module-card tbody tr:last-child td {
-  border-bottom: none;
-}
-
-/* ---------- LINK ---------- */
-.module-card a {
-  transition: color 0.2s ease, opacity 0.2s ease;
-}
-
-.module-card a:hover {
-  opacity: 0.75;
-}
-
-/* ---------- ALERTS ---------- */
-.module-root > div[role="alert"],
-.module-card > div[role="alert"] {
-  animation: alertSlide 0.35s ease both;
-}
-
-@keyframes alertSlide {
-  from { opacity: 0; transform: translateY(-6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-/* ---------- LOADING STATE ---------- */
-.module-loading {
+.wizard-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #003366;
+  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 60px 20px;
-  color: #556;
+  z-index: 1;
+}
+
+.wizard-title-group {
+  z-index: 1;
+}
+
+.wizard-title-group h2 {
+  margin: 0;
+  font-size: 24px;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.wizard-title-group p {
+  margin: 4px 0 0 0;
   font-size: 14px;
+  color: #64748b;
+}
+
+/* ---------- STEP INDICATOR (1, 2, 3) ---------- */
+.wizard-steps-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 40px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.wizard-step-item {
+  display: flex;
+  align-items: center;
   gap: 12px;
-}
-
-.module-loading::before {
-  content: '';
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 3px solid #d5e2f2;
-  border-top-color: #0055aa;
-  animation: spin 0.9s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* ---------- EMPTY STATE ---------- */
-.module-empty {
-  text-align: center;
-  padding: 50px 20px;
-  color: #889;
   font-size: 14px;
-}
-
-.module-empty::before {
-  content: '📭';
-  display: block;
-  font-size: 42px;
-  margin-bottom: 12px;
-  opacity: 0.7;
-}
-
-/* ---------- RESPONSIVE ---------- */
-@media (max-width: 640px) {
-  .module-root {
-    padding: 16px 12px 60px;
-  }
-
-  .module-header {
-    padding: 26px 22px;
-    border-radius: 14px;
-  }
-
-  .module-card {
-    padding: 22px 18px;
-    border-radius: 14px;
-  }
-
-  .module-tabs {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    scrollbar-width: none;
-    padding: 6px;
-  }
-  .module-tabs::-webkit-scrollbar { display: none; }
-
-  .module-tab {
-    padding: 9px 16px;
-    font-size: 13px;
-  }
-}
-
-/* ---------- ACCESSIBILITY ---------- */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-  }
-}
-
-/* ============================================================
-   SIMPLE MODE — Big text, big buttons, high contrast
-   Activated by adding `simple-mode` class to <body>.
-   Designed for elderly users and low-vision citizens.
-   ============================================================ */
-
-/* ---------- GLOBAL SCALE ---------- */
-body.simple-mode {
-  font-size: 18px;
-  line-height: 1.7;
-}
-
-body.simple-mode * {
-  /* Never let any component shrink below a comfortable read size */
-  letter-spacing: 0.01em;
-}
-
-/* ---------- MODULE HEADER ---------- */
-body.simple-mode .module-header {
-  padding: 44px 36px;
-}
-
-body.simple-mode .module-header h1 {
-  font-size: clamp(30px, 4vw, 42px);
-  line-height: 1.3;
-}
-
-body.simple-mode .module-header p {
-  font-size: 19px;
-  line-height: 1.6;
-  margin-top: 8px;
-}
-
-/* ---------- TABS ---------- */
-body.simple-mode .module-tabs {
-  gap: 12px;
-  padding: 12px;
-  border-radius: 16px;
-}
-
-body.simple-mode .module-tab {
-  padding: 16px 24px;
-  font-size: 17px;
-  border-radius: 12px;
-  min-height: 56px;
-}
-
-body.simple-mode .module-tab.active::after {
-  width: 8px;
-  height: 8px;
-  bottom: 8px;
-}
-
-/* ---------- CARDS ---------- */
-body.simple-mode .module-card {
-  padding: 36px 32px;
-  border-radius: 18px;
-  margin-bottom: 24px;
-}
-
-body.simple-mode .module-card::before {
-  height: 4px;
-  left: 32px;
-  right: 32px;
-}
-
-/* ---------- SECTION TITLES ---------- */
-body.simple-mode .module-section-title {
-  font-size: 22px;
-  padding-left: 18px;
-  margin-bottom: 20px;
-}
-
-body.simple-mode .module-section-title::before {
-  width: 6px;
-  height: 26px;
-}
-
-/* ---------- SECTIONS ---------- */
-body.simple-mode .module-section {
-  padding: 28px 0;
-}
-
-/* ---------- FORM FIELDS ---------- */
-body.simple-mode .module-card input[type="text"],
-body.simple-mode .module-card input[type="number"],
-body.simple-mode .module-card input[type="email"],
-body.simple-mode .module-card input[type="tel"],
-body.simple-mode .module-card input[type="date"],
-body.simple-mode .module-card input[type="datetime-local"],
-body.simple-mode .module-card input[type="password"],
-body.simple-mode .module-card select,
-body.simple-mode .module-card textarea {
-  font-size: 18px !important;
-  padding: 18px 20px !important;
-  min-height: 56px;
-  border-radius: 10px !important;
-  line-height: 1.5;
-}
-
-body.simple-mode .module-card textarea {
-  min-height: 140px;
-}
-
-body.simple-mode .module-card label {
-  font-size: 17px !important;
-  margin-bottom: 10px !important;
   font-weight: 600;
+  color: #94a3b8;
 }
 
-/* ---------- BUTTONS ---------- */
-body.simple-mode .module-card button[type="submit"],
-body.simple-mode .module-card a[role="button"],
-body.simple-mode .module-card button {
-  font-size: 18px;
-  padding: 18px 32px;
-  min-height: 56px;
-  border-radius: 999px;
+.wizard-step-item.active {
+  color: #003366;
+}
+
+.wizard-step-item.completed {
+  color: #10b981;
+}
+
+.step-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
   font-weight: bold;
 }
 
-/* ---------- TABLES ---------- */
-body.simple-mode table {
-  font-size: 17px;
+.wizard-step-item.active .step-circle {
+  background: #003366;
+  color: white;
+  box-shadow: 0 0 0 4px rgba(0, 51, 102, 0.15);
 }
 
-body.simple-mode table th {
-  padding: 20px 16px;
+.wizard-step-item.completed .step-circle {
+  background: #10b981;
+  color: white;
+}
+
+.step-connector {
+  flex: 1;
+  height: 2px;
+  background: #e2e8f0;
+  margin: 0 16px;
+}
+
+.step-connector.completed {
+  background: #10b981;
+}
+
+/* ---------- FORM BODY ---------- */
+.wizard-body {
+  padding: 40px;
+}
+
+.module-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #003366;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 20px;
+}
+
+.module-section-title svg {
+  width: 18px;
+  height: 18px;
+  fill: #003366;
+}
+
+/* ---------- CUSTOM INPUTS ---------- */
+.form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 8px;
+}
+
+.form-label span {
+  color: #ef4444;
+}
+
+/* ---------- CUSTOM RADIO CARDS ---------- */
+.radio-cards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 600px) {
+  .radio-cards-grid { grid-template-columns: 1fr; }
+}
+
+.radio-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.radio-card:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.radio-card.active {
+  border-color: #003366;
+  background: #f0f6ff;
+  box-shadow: 0 0 0 1px #003366;
+}
+
+.radio-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.radio-card.active .radio-dot {
+  border-color: #003366;
+}
+
+.radio-card.active .radio-dot::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  background: #003366;
+  border-radius: 50%;
+}
+
+/* ---------- UPLOAD ZONES ---------- */
+.upload-zone {
+  border: 2px dashed #bfdbfe;
+  background: #eff6ff;
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #003366;
+  font-weight: 600;
   font-size: 14px;
 }
 
-body.simple-mode table td {
-  padding: 20px 16px;
-  font-size: 17px;
-  line-height: 1.5;
+.upload-zone:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
 }
 
-/* ---------- BADGES ---------- */
-body.simple-mode span[class*="badge"],
-body.simple-mode .badge {
-  font-size: 14px !important;
-  padding: 8px 16px !important;
+.upload-zone svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
 }
 
-/* ---------- CHECKBOXES & RADIOS ---------- */
-body.simple-mode input[type="checkbox"],
-body.simple-mode input[type="radio"] {
-  width: 24px !important;
-  height: 24px !important;
-  margin-right: 4px;
+/* ---------- FOOTER (Navigation) ---------- */
+.wizard-footer {
+  padding: 24px 40px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-/* ---------- SUMMARY / HIGHLIGHT ROWS ---------- */
-body.simple-mode div[style*="font-size: 13"],
-body.simple-mode div[style*="fontSize: 13"] {
-  font-size: 16px !important;
-  line-height: 1.6 !important;
+.btn-wizard {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-/* ---------- PWA-LIKE TAP TARGETS ---------- */
-body.simple-mode a,
-body.simple-mode button {
-  min-height: 44px;
-  line-height: 1.4;
+.btn-wizard.back {
+  background: white;
+  color: #003366;
+  border: 1px solid #cbd5e1;
 }
 
-/* ---------- SPACING BETWEEN SECTIONS ---------- */
-body.simple-mode .module-root {
-  padding: 32px 24px 100px;
+.btn-wizard.back:hover {
+  background: #f1f5f9;
 }
 
-/* ---------- MOBILE EXTRA ---------- */
-@media (max-width: 640px) {
-  body.simple-mode {
-    font-size: 17px;
-  }
-
-  body.simple-mode .module-card {
-    padding: 28px 22px;
-  }
-
-  body.simple-mode .module-card input,
-  body.simple-mode .module-card select,
-  body.simple-mode .module-card textarea {
-    font-size: 17px !important;
-    padding: 16px 18px !important;
-  }
-
-  body.simple-mode .module-tab {
-    font-size: 16px;
-    padding: 14px 20px;
-  }
+.btn-wizard.next {
+  background: #003366;
+  color: white;
+  border: none;
+  box-shadow: 0 4px 12px rgba(0, 51, 102, 0.2);
 }
 
-/* ---------- ACCESSIBILITY ---------- */
-@media (prefers-reduced-motion: reduce) {
-  body.simple-mode * {
-    animation-duration: 0.001ms !important;
-    transition-duration: 0.001ms !important;
-  }
+.btn-wizard.next:hover {
+  background: #0055aa;
+  transform: translateY(-1px);
 }
+
+/* ---------- STANDARD MODULE STYLES (Kept for Dashboard) ---------- */
+.module-header { position: relative; padding: 36px 32px; border-radius: 18px; background: linear-gradient(135deg, #003366 0%, #0055aa 100%); color: white; margin-bottom: 24px; }
+.module-header h1 { margin: 0; font-size: 32px; font-weight: 800; color: white; }
+.module-header p { margin: 6px 0 0; font-size: 15px; color: #cfe0ff; }
+.module-tabs { display: flex; gap: 8px; padding: 8px; border-radius: 14px; background: #f0f4fa; margin-bottom: 22px; }
+.module-tab { padding: 10px 20px; border-radius: 10px; border: none; background: transparent; color: #335; font-size: 14px; font-weight: 600; cursor: pointer; }
+.module-tab.active { background: #003366; color: white; }
+.module-card { background: white; border-radius: 16px; padding: 28px; margin-bottom: 20px; box-shadow: 0 4px 18px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; }
+.info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+.info-block { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; }
+.info-label { font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 6px; }
+.info-value { font-size: 15px; font-weight: 700; color: #0f172a; }
+.info-value.mono { font-family: monospace; font-size: 16px; }
+.info-value.big { font-size: 20px; color: #003366; }

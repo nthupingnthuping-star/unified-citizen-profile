@@ -1,25 +1,42 @@
 import { useLocation, Link } from 'react-router-dom';
 import { searchServices } from '../utils/searchIndex';
 import Layout from '../components/common/Layout';
+import { useLanguage } from '../i18n/LanguageContext';
 
 const SearchPage = () => {
   const location = useLocation();
+  const { t } = useLanguage();
   const query = new URLSearchParams(location.search).get('q') || '';
   
-  // Get all results (not just top 4)
   const results = searchServices(query);
 
   return (
-    <Layout title={`Search Results`}>
+    <Layout title={t('search') || 'Search'}>
       <div style={{ maxWidth: 800, margin: '0 auto', paddingTop: 20 }}>
         
         <div style={{ marginBottom: 24 }}>
           <p style={{ fontSize: 14, color: '#666', margin: 0 }}>
-            Showing results for <strong style={{ color: '#003366', fontSize: 16 }}>"{query}"</strong>
+            {query 
+              ? `Showing results for "${query}"`
+              : 'Type in the search bar above to find a service.'
+            }
           </p>
         </div>
 
-        {results.length === 0 ? (
+        {/* IF NO QUERY: Show a prompt to search */}
+        {!query && (
+          <div style={{
+            background: 'white', borderRadius: 12, padding: 60,
+            textAlign: 'center', color: '#666', border: '1px solid #e0e0e0',
+          }}>
+            <div style={{ fontSize: 64, marginBottom: 16 }}>🔍</div>
+            <h2 style={{ margin: '0 0 8px 0', color: '#003366' }}>Search for a service</h2>
+            <p>Use the search bar at the top to find services like Passports, IDs, or Tax.</p>
+          </div>
+        )}
+
+        {/* IF QUERY AND NO RESULTS: Show the No Results screen */}
+        {query && results.length === 0 && (
           <div style={{
             background: 'white', borderRadius: 12, padding: 60,
             textAlign: 'center', color: '#666', border: '1px solid #e0e0e0',
@@ -32,7 +49,10 @@ const SearchPage = () => {
               ← Back to Home
             </Link>
           </div>
-        ) : (
+        )}
+
+        {/* IF QUERY AND RESULTS: Show the results */}
+        {query && results.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {results.map((service) => (
               <Link key={service.name} to={service.path} style={{ textDecoration: 'none' }}>

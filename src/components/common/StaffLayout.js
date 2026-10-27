@@ -44,6 +44,7 @@ const StaffLayout = ({ children, title }) => {
         // Dynamically label the queue based on the staff member's department
         { path: '/staff/queue', label: `${deptName} Queue`, icon: '📄' },
         { path: '/staff/lookup', label: 'Citizen Search', icon: '🔍' },
+        { path: '/staff/support', label: 'Support Inbox', icon: '💬' }, // <-- ADDED SUPPORT INBOX LINK
         { path: '/staff/appointments', label: 'Appointments', icon: '📅' },
         { path: '/staff/analytics', label: 'Analytics', icon: '📊' },
       ]
@@ -51,8 +52,8 @@ const StaffLayout = ({ children, title }) => {
     {
       label: 'HELP & SUPPORT',
       items: [
-        { path: '/help', label: 'User Guide', icon: '📖' },
-        { path: '/help', label: 'Contact Support', icon: '🎧' },
+        { path: '/staff/help', label: 'User Guide', icon: '📖' },
+        { path: '/staff/help', label: 'Contact Support', icon: '🎧' },
       ]
     }
   ];

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 // ============================================================
 // CLOUDINARY CONFIGURATION
@@ -8,9 +8,85 @@ const UPLOAD_PRESET = 'pension_upload_unsigned';
 const DEFAULT_FOLDER = 'citizen_documents';
 
 // ============================================================
-// CLOUDINARY UPLOAD COMPONENT
-// Direct fetch upload — no widget script needed.
-// Compact layout, no "Change" button after upload.
+// HELPERS
+// ============================================================
+const compressImage = (file, { maxDim = 1600, quality = 0.8 } = {}) =>
+  new Promise((resolve) => {
+    if (!file.type.startsWith('image/')) return resolve(file);
+
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return resolve(file);
+          resolve(
+            new File([blob], file.name.replace(/\.\w+$/, '.jpg'), {
+              type: 'image/jpeg',
+            })
+          );
+        },
+        'image/jpeg',
+        quality
+      );
+    };
+    img.onerror = () => resolve(file);
+    img.src = url;
+  });
+
+const uploadWithProgress = (file, { folder, onProgress }) =>
+  new Promise((resolve, reject) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('upload_preset', UPLOAD_PRESET);
+    if (folder) fd.append('folder', folder);
+    
+    // Optimize the file on Cloudinary's servers
+    fd.append('quality', 'auto:good');
+    fd.append('fetch_format', 'auto');
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`);
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(data);
+        } else {
+          reject(new Error(data?.error?.message || `Upload failed with status ${xhr.status}`));
+        }
+      } catch (err) {
+        reject(new Error('Invalid server response. Check Cloudinary upload preset.'));
+      }
+    };
+    
+    // This catches the "Failed to fetch" errors
+    xhr.onerror = () => reject(new Error('Network error: Failed to fetch. Check your internet connection or Cloudinary settings.'));
+    xhr.ontimeout = () => reject(new Error('Upload timed out. Please try again.'));
+    xhr.timeout = 90000; // 90 seconds timeout
+    
+    xhr.send(fd);
+  });
+
+// ============================================================
+// COMPONENT
 // ============================================================
 const CloudinaryUpload = ({
   label,
@@ -22,15 +98,18 @@ const CloudinaryUpload = ({
   disabled = false,
 }) => {
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [fileUrl, setFileUrl] = useState(currentUrl);
   const [fileName, setFileName] = useState('');
   const [error, setError] = useState('');
+  const startRef = useRef(0);
 
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setError('');
+    setProgress(0);
 
     // Validate extension
     const ext = file.name.split('.').pop()?.toLowerCase() || '';
@@ -48,22 +127,16 @@ const CloudinaryUpload = ({
     }
 
     setUploading(true);
+    startRef.current = Date.now();
+    
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('upload_preset', UPLOAD_PRESET);
-      if (folder) fd.append('folder', folder);
+      // Shrink images before they leave the browser to speed up upload.
+      const preparedFile = await compressImage(file);
 
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`,
-        { method: 'POST', body: fd }
-      );
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data?.error?.message || 'Upload failed.');
-      }
+      const data = await uploadWithProgress(preparedFile, {
+        folder,
+        onProgress: setProgress,
+      });
 
       setFileUrl(data.secure_url);
       setFileName(file.name);
@@ -73,6 +146,7 @@ const CloudinaryUpload = ({
       setError(err.message || 'Upload failed. Please try again.');
     } finally {
       setUploading(false);
+      setProgress(0);
       e.target.value = '';
     }
   };
@@ -81,6 +155,7 @@ const CloudinaryUpload = ({
     setFileUrl(null);
     setFileName('');
     setError('');
+    setProgress(0);
     if (onUpload) onUpload(null);
   };
 
@@ -203,33 +278,57 @@ const CloudinaryUpload = ({
           </div>
         </div>
       ) : (
-        /* ---------- Compact upload button ---------- */
-        <label
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6,
-            background: disabled || uploading ? '#999' : '#f0f6ff',
-            border: '1px dashed #99b3cc',
-            borderRadius: 6,
-            padding: '8px 16px',
-            fontSize: 12,
-            cursor: disabled || uploading ? 'not-allowed' : 'pointer',
-            color: disabled || uploading ? 'white' : '#003366',
-            fontWeight: 'bold',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {uploading ? '⏳ Uploading…' : '📎 Choose File'}
-          <input
-            type="file"
-            accept={formats.map((f) => `.${f}`).join(',')}
-            onChange={handleFileSelect}
-            disabled={disabled || uploading}
-            style={{ display: 'none' }}
-          />
-        </label>
+        /* ---------- Upload button + Progress Bar ---------- */
+        <div>
+          <label
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              background: disabled || uploading ? '#999' : '#f0f6ff',
+              border: '1px dashed #99b3cc',
+              borderRadius: 6,
+              padding: '8px 16px',
+              fontSize: 12,
+              cursor: disabled || uploading ? 'not-allowed' : 'pointer',
+              color: disabled || uploading ? 'white' : '#003366',
+              fontWeight: 'bold',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {uploading ? `⏳ Uploading… ${progress}%` : '📎 Choose File'}
+            <input
+              type="file"
+              accept={formats.map((f) => `.${f}`).join(',')}
+              onChange={handleFileSelect}
+              disabled={disabled || uploading}
+              style={{ display: 'none' }}
+            />
+          </label>
+          
+          {uploading && (
+            <div
+              style={{
+                marginTop: 6,
+                height: 4,
+                background: '#e0e8f0',
+                borderRadius: 2,
+                overflow: 'hidden',
+                maxWidth: 200,
+              }}
+            >
+              <div
+                style={{
+                  width: `${progress}%`,
+                  height: '100%',
+                  background: 'linear-gradient(90deg, #003366 0%, #0055aa 100%)',
+                  transition: 'width 0.2s ease',
+                }}
+              />
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

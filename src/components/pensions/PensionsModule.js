@@ -27,7 +27,7 @@ import '../../styles/module.css';
 // CONSTANTS
 // ============================================================
 const BANK_OPTIONS = [
-  { value: '', label: '— Select bank —', branch: '', type: '' },
+  { value: '', labelKey: 'pension_select_bank', branch: '', type: '' },
   { value: 'Standard Lesotho Bank', label: 'Standard Lesotho Bank', branch: '060167', type: 'bank' },
   { value: 'Nedbank Lesotho', label: 'Nedbank Lesotho', branch: '330162', type: 'bank' },
   { value: 'First National Bank Lesotho', label: 'First National Bank Lesotho', branch: '280361', type: 'bank' },
@@ -37,35 +37,35 @@ const BANK_OPTIONS = [
 ];
 
 const ACCOUNT_TYPE_OPTIONS = [
-  { value: 'Cheque', label: 'Cheque / Current account' },
-  { value: 'Savings', label: 'Savings account' },
-  { value: 'M-Pesa', label: 'M-Pesa wallet' },
-  { value: 'EcoCash', label: 'EcoCash wallet' },
+  { value: 'Cheque', labelKey: 'pension_account_cheque' },
+  { value: 'Savings', labelKey: 'pension_account_savings' },
+  { value: 'M-Pesa', labelKey: 'pension_account_mpesa' },
+  { value: 'EcoCash', labelKey: 'pension_account_ecocash' },
 ];
 
 const DISABILITY_TYPE_OPTIONS = [
-  { value: '', label: '— Select type —' },
-  { value: 'Physical - mobility', label: 'Physical — mobility impairment' },
-  { value: 'Physical - amputation', label: 'Physical — amputation' },
-  { value: 'Visual', label: 'Visual impairment / blindness' },
-  { value: 'Hearing', label: 'Hearing impairment / deafness' },
-  { value: 'Speech', label: 'Speech impairment' },
-  { value: 'Intellectual', label: 'Intellectual disability' },
-  { value: 'Mental health', label: 'Mental health condition' },
-  { value: 'Chronic illness', label: 'Chronic illness' },
-  { value: 'Multiple', label: 'Multiple disabilities' },
-  { value: 'Other', label: 'Other (describe below)' },
+  { value: '', labelKey: 'pension_select_type' },
+  { value: 'Physical - mobility', labelKey: 'pension_dis_mobility' },
+  { value: 'Physical - amputation', labelKey: 'pension_dis_amputation' },
+  { value: 'Visual', labelKey: 'pension_dis_visual' },
+  { value: 'Hearing', labelKey: 'pension_dis_hearing' },
+  { value: 'Speech', labelKey: 'pension_dis_speech' },
+  { value: 'Intellectual', labelKey: 'pension_dis_intellectual' },
+  { value: 'Mental health', labelKey: 'pension_dis_mental' },
+  { value: 'Chronic illness', labelKey: 'pension_dis_chronic' },
+  { value: 'Multiple', labelKey: 'pension_dis_multiple' },
+  { value: 'Other', labelKey: 'pension_dis_other' },
 ];
 
 const RELATIONSHIP_OPTIONS = [
-  { value: '', label: '— Select relationship —' },
-  { value: 'Spouse', label: 'Spouse' },
-  { value: 'Son', label: 'Son' },
-  { value: 'Daughter', label: 'Daughter' },
-  { value: 'Sibling', label: 'Brother / Sister' },
-  { value: 'Grandchild', label: 'Grandchild' },
-  { value: 'Legal guardian', label: 'Legal guardian' },
-  { value: 'Other', label: 'Other' },
+  { value: '', labelKey: 'pension_select_relationship' },
+  { value: 'Spouse', labelKey: 'pension_rel_spouse' },
+  { value: 'Son', labelKey: 'pension_rel_son' },
+  { value: 'Daughter', labelKey: 'pension_rel_daughter' },
+  { value: 'Sibling', labelKey: 'pension_rel_sibling' },
+  { value: 'Grandchild', labelKey: 'pension_rel_grandchild' },
+  { value: 'Legal guardian', labelKey: 'pension_rel_guardian' },
+  { value: 'Other', labelKey: 'pension_rel_other' },
 ];
 
 const EMPTY_EMPLOYMENT = {
@@ -79,61 +79,32 @@ const EMPTY_EMPLOYMENT = {
 // ============================================================
 // HELPERS
 // ============================================================
-const getCitizenshipDisplay = (raw) => {
+const getCitizenshipDisplay = (raw, t) => {
   const value = (raw || '').toLowerCase();
   if (value.includes('mosotho') || value.includes('citizen')) return 'Mosotho';
-  if (value.includes('resident')) return 'Permanent resident';
+  if (value.includes('resident')) return t ? t('traffic_permanent_resident') : 'Permanent resident';
   return 'Mosotho';
 };
 
-// Which type of pension fund does this citizen qualify for?
-const getFundEligibility = (age, employment) => {
+const getFundEligibility = (age, employment, t) => {
   const isGov = employment?.employment_type === 'Government';
   const isRetired = employment?.employment_type === 'Retired';
   const isPrivate = employment?.employment_type === 'Private sector';
   const isSelf = employment?.employment_type === 'Self-employed';
 
-  // Still working in government = no pension yet (has Retirement Fund accruing)
   if (isGov && age < 60) {
-    return {
-      type: 'none_yet',
-      label: 'Still employed — no payout yet',
-      message: 'You are on the government payroll. You will qualify for the Retirement Fund when you retire.',
-    };
+    return { type: 'none_yet', labelKey: 'pension_fund_none_label', messageKey: 'pension_fund_none_still_employed' };
   }
-
-  // Retired government employee → Retirement Fund
   if ((isGov || isRetired) && age >= 55) {
-    return {
-      type: 'retirement',
-      label: 'Retirement Fund',
-      message: 'As a former Government employee, you qualify for the Retirement Fund — not Old Age Pension.',
-    };
+    return { type: 'retirement', labelKey: 'pension_fund_retirement_label', messageKey: 'pension_fund_retirement_message' };
   }
-
-  // Private sector or self-employed, 65+ → Old Age Pension
   if ((isPrivate || isSelf) && age >= 65) {
-    return {
-      type: 'old_age',
-      label: 'Old Age Pension',
-      message: 'As a private sector worker at 65+, you qualify for the Old Age Pension — not the Retirement Fund.',
-    };
+    return { type: 'old_age', labelKey: 'pension_fund_old_age_label', messageKey: 'pension_fund_old_age_message' };
   }
-
-  // Unemployed at 65+ → Old Age Pension
   if (employment?.employment_type === 'Unemployed' && age >= 65) {
-    return {
-      type: 'old_age',
-      label: 'Old Age Pension',
-      message: 'At 65+ with no current employment, you qualify for the Old Age Pension.',
-    };
+    return { type: 'old_age', labelKey: 'pension_fund_old_age_label', messageKey: 'pension_fund_old_age_unemployed_message' };
   }
-
-  return {
-    type: 'none_yet',
-    label: 'Not eligible yet',
-    message: 'You do not currently qualify for either pension fund.',
-  };
+  return { type: 'none_yet', labelKey: 'pension_fund_none_eligible_label', messageKey: 'pension_fund_none_eligible_message' };
 };
 
 // ============================================================
@@ -151,43 +122,21 @@ const PensionsModule = () => {
   const [lastSubmission, setLastSubmission] = useState(null);
   const [editingApplication, setEditingApplication] = useState(null);
 
-  // ---------- OLD AGE ----------
   const [oldAge, setOldAge] = useState({
     employment: { ...EMPTY_EMPLOYMENT },
-    bank_name: '',
-    account_number: '',
-    branch_code: '',
-    account_holder: '',
-    account_type: 'Cheque',
-    chief_name: '',
-    chief_confirmation_number: '',
-    chief_letter_url: '',
-    chief_confirmed: false,
-    applying_for: 'self',
-    applicant_name: '',
-    applicant_id: '',
-    applicant_relationship: '',
-    truth_declaration: false,
-    data_consent: false,
+    bank_name: '', account_number: '', branch_code: '', account_holder: '', account_type: 'Cheque',
+    chief_name: '', chief_confirmation_number: '', chief_letter_url: '', chief_confirmed: false,
+    applying_for: 'self', applicant_name: '', applicant_id: '', applicant_relationship: '',
+    truth_declaration: false, data_consent: false,
   });
   const [oldAgeTouched, setOldAgeTouched] = useState(false);
 
-  // ---------- DISABILITY ----------
   const [disability, setDisability] = useState({
-    disability_type: '',
-    disability_description: '',
-    doctor_name: '',
-    clinic_name: '',
-    diagnosis_date: '',
+    disability_type: '', disability_description: '', doctor_name: '', clinic_name: '', diagnosis_date: '',
+    medical_report_url: '',
     employment: { ...EMPTY_EMPLOYMENT },
-    bank_name: '',
-    account_number: '',
-    branch_code: '',
-    account_holder: '',
-    account_type: 'Cheque',
-    has_medical_report: false,
-    truth_declaration: false,
-    data_consent: false,
+    bank_name: '', account_number: '', branch_code: '', account_holder: '', account_type: 'Cheque',
+    has_medical_report: false, truth_declaration: false, data_consent: false,
   });
   const [disabilityTouched, setDisabilityTouched] = useState(false);
 
@@ -207,12 +156,11 @@ const PensionsModule = () => {
         account_holder: s.account_holder || profile.full_name || '',
       }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, oldAgeTouched, disabilityTouched]);
 
   const age = calculateAge(profile?.date_of_birth);
   const oldAgeEligibility = checkEligibility('OLD_AGE_PENSION', profile?.date_of_birth);
-  const fundEligibility = getFundEligibility(age, profile?.employment);
+  const fundEligibility = getFundEligibility(age, profile?.employment, t);
 
   const fetchData = async () => {
     if (!profile) return;
@@ -228,7 +176,6 @@ const PensionsModule = () => {
     }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchData(); }, [profile]);
 
   const submit = async (serviceType, data) => {
@@ -253,7 +200,7 @@ const PensionsModule = () => {
         }
       }
 
-      setMessage(`✓ Submitted: ${r.reference}`);
+      setMessage(`✓ ${t('submitted')}: ${r.reference}`);
       setLastSubmission({
         reference: r.reference,
         serviceType,
@@ -277,14 +224,12 @@ const PensionsModule = () => {
     else if (app.service_type === 'Disability Grant') setActiveTab('disability');
   };
 
-  const handleCancelEdit = () => {
-    setEditingApplication(null);
-  };
+  const handleCancelEdit = () => setEditingApplication(null);
 
   const handleResubmitted = () => {
     setEditingApplication(null);
     setActiveTab('dashboard');
-    setMessage('✓ Your updated application has been resubmitted for review.');
+    setMessage(`✓ ${t('pension_resubmitted_ok')}`);
     fetchData();
   };
 
@@ -296,10 +241,10 @@ const PensionsModule = () => {
   };
 
   const TABS = [
-    { key: 'dashboard', label: 'My Applications' },
-    { key: 'fund', label: 'Fund & Retirement' },
-    { key: 'oldage', label: 'Old Age Pension' },
-    { key: 'disability', label: 'Disability Grant' },
+    { key: 'dashboard', label: t('my_applications_tab') },
+    { key: 'fund', label: t('fund_retirement_tab') },
+    { key: 'oldage', label: t('old_age_pension_tab') },
+    { key: 'disability', label: t('disability_grant_tab') },
   ];
 
   const needsInfo = applications.filter(
@@ -311,13 +256,12 @@ const PensionsModule = () => {
       <Layout title={t('pensions_department')}>
         <div className="module-root">
           <div className="module-header">
-            <h1>Pensions Department</h1>
-            <p>Fund management, retirement, old age and disability services</p>
+            <h1>{t('pensions_department')}</h1>
+            <p>{t('pension_subtitle')}</p>
           </div>
 
           <Alert type="info">{t('verified_by_home_affairs')}</Alert>
 
-          {/* 🔔 Fund eligibility banner — shows which fund the citizen qualifies for */}
           {fundEligibility && (
             <div style={{
               background:
@@ -341,7 +285,7 @@ const PensionsModule = () => {
                      : '#666',
                 marginBottom: 6,
               }}>
-                🎯 Your pension eligibility: <u>{fundEligibility.label}</u>
+                🎯 {t('pension_eligibility_header')} <u>{t(fundEligibility.labelKey)}</u>
               </div>
               <div style={{
                 fontSize: 13,
@@ -350,12 +294,12 @@ const PensionsModule = () => {
                      : fundEligibility.type === 'old_age' ? '#003366'
                      : '#666',
               }}>
-                {fundEligibility.message}
+                {t(fundEligibility.messageKey)}
                 {fundEligibility.type === 'retirement' && (
                   <>
                     {' '}
                     <Link to="/pension/fund" style={{ fontWeight: 'bold', color: '#006600' }}>
-                      Go to your Fund Profile →
+                      {t('pension_go_to_fund')} →
                     </Link>
                   </>
                 )}
@@ -388,9 +332,9 @@ const PensionsModule = () => {
             <div className="module-card" style={{ marginBottom: 20 }}>
               <div style={{ textAlign: 'center', padding: 10 }}>
                 <h3 style={{ color: '#006600', marginTop: 0, marginBottom: 8 }}>
-                  Application received
+                  {t('pension_application_received')}
                 </h3>
-                <p style={{ color: '#666', margin: '0 0 10px 0' }}>Reference number:</p>
+                <p style={{ color: '#666', margin: '0 0 10px 0' }}>{t('pension_reference_label')}</p>
                 <div style={{
                   display: 'inline-block',
                   background: '#f0f6ff',
@@ -420,16 +364,16 @@ const PensionsModule = () => {
                     color: '#333',
                   }}>
                     <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: 8, fontSize: 13 }}>
-                      💰 Payout account
+                      💰 {t('pension_payout_account_title')}
                     </div>
-                    <SummaryRow label="Bank / Mobile" value={lastSubmission.bankName} />
-                    <SummaryRow label="Account Holder" value={lastSubmission.accountHolder} />
-                    <SummaryRow label="Account Number" value={lastSubmission.accountNumber} mono />
+                    <SummaryRow label={t('pension_bank_service')} value={lastSubmission.bankName} />
+                    <SummaryRow label={t('account_holder')} value={lastSubmission.accountHolder} />
+                    <SummaryRow label={t('account_number')} value={lastSubmission.accountNumber} mono />
                   </div>
                 )}
 
                 <p style={{ color: '#666', marginTop: 14, fontSize: 13 }}>
-                  Expected review within <strong>14 working days</strong>.
+                  {t('pension_expected_review')} <strong>{t('pension_review_days')}</strong>.
                 </p>
               </div>
             </div>
@@ -446,9 +390,15 @@ const PensionsModule = () => {
               ))}
 
               <div className="module-card">
-                <div className="module-section-title">My Pension Applications</div>
+                <div className="module-section-title">{t('pension_my_apps')}</div>
                 <Table
-                  headers={['Reference', 'Service', 'Status', 'Submitted', 'Action']}
+                  headers={[
+                    t('reference'),
+                    t('service'),
+                    t('status'),
+                    t('submitted'),
+                    t('action'),
+                  ]}
                   rows={applications.map((a) => [
                     a.application_reference,
                     a.service_type,
@@ -469,20 +419,20 @@ const PensionsModule = () => {
                           boxShadow: '0 2px 8px rgba(255, 153, 0, 0.35)',
                         }}
                       >
-                        ✎ Edit & Resubmit
+                        {t('edit_and_resubmit')}
                       </button>
                     ) : a.status === 'approved' || a.status === 'completed' ? (
                       <Link
                         to={`/certificate/${a.application_reference}`}
                         style={{ color: '#003366', fontWeight: 'bold', textDecoration: 'underline', fontSize: 13 }}
                       >
-                        View Document
+                        {t('view_certificate')}
                       </Link>
                     ) : (
                       <span style={{ color: '#999', fontSize: 12 }}>—</span>
                     ),
                   ])}
-                  emptyMessage="No applications yet."
+                  emptyMessage={t('no_applications_yet')}
                 />
               </div>
             </>
@@ -490,26 +440,21 @@ const PensionsModule = () => {
 
           {activeTab === 'fund' && (
             <div className="module-card">
-              <div className="module-section-title">Fund & Retirement Services</div>
+              <div className="module-section-title">{t('pension_fund_services')}</div>
               <p style={{ color: '#555', marginTop: 0, marginBottom: 20 }}>
-                Access your pension fund statement, retirement projection calculator,
-                claim submission, beneficiary management, and claim tracking.
+                {t('pension_fund_intro')}
               </p>
 
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                gap: 16,
-              }}>
-                <PensionTile to="/pension/fund" icon="🗂️" title="My Fund Profile" desc="Declare and manage your pension fund record" />
-                <PensionTile to="/pension/statement" icon="📄" title="Fund Statement" desc="View your current fund balance and contribution history" />
-                <PensionTile to="/pension/projection" icon="📈" title="Retirement Projection" desc="Estimate your pension value at retirement" />
-                <PensionTile to="/pension/claims" icon="📝" title="Submit a Claim" desc="Retirement, withdrawal, death, or ill-health claim" />
-                <PensionTile to="/pension/beneficiaries" icon="👥" title="Beneficiaries" desc="Manage your nominated beneficiaries" />
-                <PensionTile to="/pension/status" icon="🔍" title="Claim Status" desc="Track the progress of your submitted claims" />
+              {/* NEW: Vertical List instead of Tiles */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <PensionLink to="/pension/fund" icon="🗂️" title="Pension Fund Profile" desc={t('pension_tile_profile_desc')} />
+                <PensionLink to="/pension/statement" icon="📄" title="Pension Statement" desc={t('pension_tile_statement_desc')} />
+                <PensionLink to="/pension/projection" icon="📈" title="Retirement Projection" desc={t('pension_tile_projection_desc')} />
+                <PensionLink to="/pension/claims" icon="📝" title="Submit a Claim" desc={t('pension_tile_claim_desc')} />
+                <PensionLink to="/pension/beneficiaries" icon="👥" title="Beneficiaries" desc={t('pension_tile_beneficiaries_desc')} />
+                <PensionLink to="/pension/status" icon="🔍" title="Claim Status" desc={t('pension_tile_status_desc')} />
               </div>
 
-              {/* 🔗 Show fund record summary if it exists */}
               {fundRecord && (
                 <div style={{
                   marginTop: 24,
@@ -519,13 +464,13 @@ const PensionsModule = () => {
                   padding: 16,
                 }}>
                   <div style={{ fontSize: 13, fontWeight: 'bold', color: '#003366', marginBottom: 10 }}>
-                    💼 Your pension fund summary
+                    💼 {t('pension_fund_summary')}
                   </div>
-                  <SummaryRow label="Member Number" value={fundRecord.member_number} mono />
-                  <SummaryRow label="Employer" value={fundRecord.employer_name} />
-                  <SummaryRow label="Months of Service" value={`${fundRecord.months_of_service || 0} months`} />
-                  <SummaryRow label="Total Fund Credit" value={`M ${(fundRecord.total_fund_credit || 0).toLocaleString()}`} />
-                  <SummaryRow label="Status" value={fundRecord.verification_status} />
+                  <SummaryRow label={t('pension_member_number')} value={fundRecord.member_number} mono />
+                  <SummaryRow label={t('employer')} value={fundRecord.employer_name} />
+                  <SummaryRow label={t('pension_months_service')} value={`${fundRecord.months_of_service || 0} ${t('months')}`} />
+                  <SummaryRow label={t('pension_total_credit')} value={`M ${(fundRecord.total_fund_credit || 0).toLocaleString()}`} />
+                  <SummaryRow label={t('status')} value={fundRecord.verification_status} />
                 </div>
               )}
             </div>
@@ -574,7 +519,36 @@ const PensionsModule = () => {
 };
 
 // ============================================================
-// OLD-AGE PENSION FORM (create or edit)
+// PENSION LINK (Replaces Tile)
+// ============================================================
+const PensionLink = ({ to, icon, title, desc }) => (
+  <Link to={to} style={{ textDecoration: 'none' }}>
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 16,
+      background: 'white', border: '1px solid #e2e8f0', borderRadius: 8, padding: 16,
+      transition: 'all 0.2s ease', cursor: 'pointer',
+    }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = '#0055aa';
+        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 51, 102, 0.08)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = '#e2e8f0';
+        e.currentTarget.style.boxShadow = 'none';
+      }}
+    >
+      <div style={{ fontSize: 24 }}>{icon}</div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 15, fontWeight: 'bold', color: '#003366', marginBottom: 4 }}>{title}</div>
+        <div style={{ fontSize: 13, color: '#64748b' }}>{desc}</div>
+      </div>
+      <div style={{ color: '#0055aa', fontSize: 18, fontWeight: 'bold' }}>→</div>
+    </div>
+  </Link>
+);
+
+// ============================================================
+// OLD-AGE PENSION FORM
 // ============================================================
 const OldAgePensionForm = ({
   form,
@@ -589,6 +563,7 @@ const OldAgePensionForm = ({
   onCancelEdit,
   onResubmitted,
 }) => {
+  const { t } = useLanguage();
   const isEditing = !!existingApplication;
   const update = (key, value) => setForm({ ...form, [key]: value });
 
@@ -663,7 +638,7 @@ const OldAgePensionForm = ({
         await resubmitApplication(existingApplication.id, payload);
         if (onResubmitted) onResubmitted();
       } catch (err) {
-        alert('Failed to resubmit: ' + err.message);
+        alert(t('pension_resubmit_failed') + err.message);
       } finally {
         setResubmitting(false);
       }
@@ -683,10 +658,10 @@ const OldAgePensionForm = ({
           marginBottom: 20,
         }}>
           <div style={{ fontSize: 15, fontWeight: 'bold', color: '#7a5a00', marginBottom: 6 }}>
-            ✎ Editing — {existingApplication.application_reference}
+            ✎ {t('edit_banner')} — {existingApplication.application_reference}
           </div>
           <div style={{ fontSize: 13, color: '#7a5a00', lineHeight: 1.6, marginBottom: 10 }}>
-            <strong>What Pensions needs:</strong>{' '}
+            <strong>{t('pension_what_needs')}</strong>{' '}
             {existingApplication.notes || existingApplication.rejection_reason}
           </div>
           <button
@@ -703,23 +678,19 @@ const OldAgePensionForm = ({
               cursor: 'pointer',
             }}
           >
-            Cancel editing
+            {t('cancel_editing')}
           </button>
         </div>
       )}
 
       <div className="module-section-title">
-        {isEditing ? 'Update Old Age Pension Application' : 'Old Age Pension Application'}
+        {isEditing ? t('pension_update_old_age') : t('pension_old_age_app')}
       </div>
 
       {!isEditing && (
-        <Alert type="info">
-          Lesotho Old Age Pension is available to citizens aged{' '}
-          <strong>65 years and above</strong>.
-        </Alert>
+        <Alert type="info">{t('pension_old_age_info')}</Alert>
       )}
 
-      {/* ⛔ Government employee block */}
       {isGovernmentEmployee && (
         <div style={{
           background: 'linear-gradient(135deg, #8b0000 0%, #cc0000 100%)',
@@ -730,12 +701,10 @@ const OldAgePensionForm = ({
         }}>
           <div style={{ fontSize: 32, marginBottom: 8 }}>⛔</div>
           <h2 style={{ margin: '0 0 10px 0', fontSize: 20, color: 'white' }}>
-            You cannot apply for Old Age Pension
+            {t('pension_cannot_apply_title')}
           </h2>
           <p style={{ margin: '0 0 16px 0', fontSize: 14, opacity: 0.95, lineHeight: 1.6 }}>
-            As a <strong>Government employee</strong>, you receive a civil-service
-            pension funded by the taxpayer. Old Age Pension is reserved for
-            citizens <strong>not</strong> on the government payroll.
+            {t('pension_cannot_apply_body')}
           </p>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <Link to="/pension/fund" style={{
@@ -747,7 +716,7 @@ const OldAgePensionForm = ({
               fontWeight: 'bold',
               fontSize: 13,
             }}>
-              Go to Pension Fund →
+              {t('pension_go_to_fund')} →
             </Link>
             <button
               type="button"
@@ -763,13 +732,12 @@ const OldAgePensionForm = ({
                 cursor: 'pointer',
               }}
             >
-              I selected this by mistake
+              {t('pension_selected_by_mistake')}
             </button>
           </div>
         </div>
       )}
 
-      {/* ⛔ Retirement Fund block */}
       {!isGovernmentEmployee && isRetirementFundEligible && (
         <div style={{
           background: '#e6f4ea',
@@ -780,10 +748,10 @@ const OldAgePensionForm = ({
         }}>
           <div style={{ fontSize: 24, marginBottom: 6 }}>🏦</div>
           <h3 style={{ margin: '0 0 8px 0', fontSize: 17, color: '#006600' }}>
-            You qualify for the Retirement Fund — not Old Age Pension
+            {t('pension_retirement_title')}
           </h3>
           <p style={{ margin: '0 0 14px 0', fontSize: 13, color: '#006600', lineHeight: 1.6 }}>
-            {fundEligibility.message}
+            {t(fundEligibility.messageKey)}
           </p>
           <Link to="/pension/fund" style={{
             display: 'inline-block',
@@ -795,15 +763,14 @@ const OldAgePensionForm = ({
             fontWeight: 'bold',
             fontSize: 13,
           }}>
-            Go to my Fund Profile →
+            {t('pension_go_to_my_fund')} →
           </Link>
         </div>
       )}
 
       <form onSubmit={handleSubmit}>
-        {/* 1 · APPLICANT */}
         <div className="module-section">
-          <div className="module-section-title">1 · Applicant</div>
+          <div className="module-section-title">{t('pension_step1_applicant')}</div>
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
             <div style={{
               width: 60, height: 60, borderRadius: '50%',
@@ -828,13 +795,13 @@ const OldAgePensionForm = ({
                 {profile?.full_name}
               </div>
               <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>
-                National ID: {profile?.national_id}
+                {t('national_id')}: {profile?.national_id}
               </div>
               <div style={{ fontSize: 13, color: '#666' }}>
-                Date of Birth: {profile?.date_of_birth} · Age: <strong>{age}</strong>
+                {t('date_of_birth')}: {profile?.date_of_birth} · {t('traffic_age')}: <strong>{age}</strong>
               </div>
               <div style={{ fontSize: 13, color: '#666' }}>
-                Citizenship: <strong>{getCitizenshipDisplay(profile?.citizenship_status)}</strong>
+                {t('citizenship')}: <strong>{getCitizenshipDisplay(profile?.citizenship_status, t)}</strong>
               </div>
               {eligible && !blocked && (
                 <div style={{
@@ -843,7 +810,7 @@ const OldAgePensionForm = ({
                   padding: '4px 12px', borderRadius: 12,
                   fontSize: 12, fontWeight: 'bold',
                 }}>
-                  ✓ Eligible (age {age})
+                  ✓ {t('pension_eligible').replace('{age}', age)}
                 </div>
               )}
             </div>
@@ -851,18 +818,18 @@ const OldAgePensionForm = ({
 
           <div style={{ marginTop: 18 }}>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', color: '#333', marginBottom: 8 }}>
-              Who is this application for?
+              {t('applying_for')}
             </label>
             <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
               <Radio
                 checked={form.applying_for === 'self'}
                 onChange={() => update('applying_for', 'self')}
-                label="For myself"
+                label={t('for_self')}
               />
               <Radio
                 checked={form.applying_for === 'other'}
                 onChange={() => update('applying_for', 'other')}
-                label="On behalf of someone else (next-of-kin)"
+                label={t('for_other')}
               />
             </div>
           </div>
@@ -870,63 +837,59 @@ const OldAgePensionForm = ({
           {form.applying_for === 'other' && (
             <div style={{ marginTop: 18, padding: 16, background: '#f9f9f9', borderRadius: 6 }}>
               <div style={{ fontSize: 13, fontWeight: 'bold', color: '#003366', marginBottom: 10 }}>
-                Applicant (on behalf of)
+                {t('pension_applicant_on_behalf')}
               </div>
-              <FormField label="Full Name" value={form.applicant_name} onChange={(v) => update('applicant_name', v)} required />
-              <FormField label="National ID" value={form.applicant_id} onChange={(v) => update('applicant_id', v)} required />
-              <FormField label="Relationship" as="select" value={form.applicant_relationship} onChange={(v) => update('applicant_relationship', v)} options={RELATIONSHIP_OPTIONS} required />
+              <FormField label={t('full_name')} value={form.applicant_name} onChange={(v) => update('applicant_name', v)} required />
+              <FormField label={t('national_id')} value={form.applicant_id} onChange={(v) => update('applicant_id', v)} required />
+              <FormField label={t('relationship')} as="select" value={form.applicant_relationship} onChange={(v) => update('applicant_relationship', v)} options={RELATIONSHIP_OPTIONS.map((r) => ({ value: r.value, label: t(r.labelKey) }))} required />
             </div>
           )}
         </div>
 
-        {/* 2 · EMPLOYMENT (reusable) */}
         <EmploymentSection
           value={form.employment}
           onChange={(employment) => update('employment', employment)}
         />
 
-        {/* 3 · PAYOUT ACCOUNT */}
         <div className="module-section">
-          <div className="module-section-title">3 · Payout account</div>
+          <div className="module-section-title">{t('pension_step3_payout')}</div>
           <PayoutInfoBanner />
-          <FormField label="Bank / Mobile Money" as="select" value={form.bank_name} onChange={handleBankChange} options={BANK_OPTIONS} required />
-          <FormField label="Account Number" value={form.account_number} onChange={(v) => update('account_number', v)} placeholder="e.g. 0123456789" required />
-          <FormField label="Branch Code" value={form.branch_code} onChange={(v) => update('branch_code', v)} />
-          <FormField label="Account Holder Name" value={form.account_holder} onChange={(v) => update('account_holder', v)} required />
-          <FormField label="Account Type" as="select" value={form.account_type} onChange={(v) => update('account_type', v)} options={ACCOUNT_TYPE_OPTIONS} />
+          <FormField label={t('bank_mobile')} as="select" value={form.bank_name} onChange={handleBankChange} options={BANK_OPTIONS.map((b) => ({ value: b.value, label: b.labelKey ? t(b.labelKey) : b.label }))} required />
+          <FormField label={t('account_number')} value={form.account_number} onChange={(v) => update('account_number', v)} placeholder={t('pension_placeholder_account')} required />
+          <FormField label={t('branch_code')} value={form.branch_code} onChange={(v) => update('branch_code', v)} />
+          <FormField label={t('account_holder')} value={form.account_holder} onChange={(v) => update('account_holder', v)} required />
+          <FormField label={t('account_type')} as="select" value={form.account_type} onChange={(v) => update('account_type', v)} options={ACCOUNT_TYPE_OPTIONS.map((a) => ({ value: a.value, label: t(a.labelKey) }))} />
           <PayoutSummary bankName={form.bank_name} accountHolder={form.account_holder} accountNumber={form.account_number} accountType={form.account_type} />
         </div>
 
-        {/* 4 · CHIEF */}
         <div className="module-section">
-          <div className="module-section-title">4 · Chief's confirmation (where applicable)</div>
+          <div className="module-section-title">{t('pension_step4_chief')}</div>
           <p style={{ fontSize: 13, color: '#666', marginTop: 0, marginBottom: 12 }}>
-            If your Chief has certified this application, enter their details below and upload a photo or scan of the signed letter.
+            {t('pension_chief_help')}
           </p>
-          <Checkbox checked={form.chief_confirmed} onChange={(v) => update('chief_confirmed', v)} label="My Chief has certified this application" />
+          <Checkbox checked={form.chief_confirmed} onChange={(v) => update('chief_confirmed', v)} label={t('my_chief_confirmed')} />
           {form.chief_confirmed && (
             <div style={{ marginTop: 12 }}>
-              <FormField label="Chief's Full Name *" value={form.chief_name} onChange={(v) => update('chief_name', v)} required />
-              <FormField label="Chief's Confirmation Number" value={form.chief_confirmation_number} onChange={(v) => update('chief_confirmation_number', v)} placeholder="Optional" />
-              <CloudinaryUpload label="Upload the signed Chief's Letter (JPG, PNG, or PDF) *" onUpload={(url) => update('chief_letter_url', url)} />
+              <FormField label={`${t('chief_name')} *`} value={form.chief_name} onChange={(v) => update('chief_name', v)} required />
+              <FormField label={t('chief_ref')} value={form.chief_confirmation_number} onChange={(v) => update('chief_confirmation_number', v)} placeholder={t('police_optional')} />
+              <CloudinaryUpload label={`${t('chief_letter')} *`} onUpload={(url) => update('chief_letter_url', url)} />
             </div>
           )}
         </div>
 
-        {/* 5 · DECLARATIONS */}
         <div className="module-section" style={{ borderBottom: 'none', paddingBottom: 0 }}>
-          <div className="module-section-title">5 · Declarations</div>
-          <Checkbox checked={form.truth_declaration} onChange={(v) => update('truth_declaration', v)} label="I declare that the information provided is true and correct." />
-          <Checkbox checked={form.data_consent} onChange={(v) => update('data_consent', v)} label="I consent to a data verification against Home Affairs, the Ministry of Finance, and RSL." />
+          <div className="module-section-title">{t('pension_step5_declarations')}</div>
+          <Checkbox checked={form.truth_declaration} onChange={(v) => update('truth_declaration', v)} label={t('pension_declaration_truth')} />
+          <Checkbox checked={form.data_consent} onChange={(v) => update('data_consent', v)} label={t('data_consent')} />
         </div>
 
         <SubmitButton
           canSubmit={canSubmit && !resubmitting}
           submitting={submitting || resubmitting}
           label={
-            blocked ? 'Not eligible'
-            : isEditing ? 'Resubmit Application'
-            : 'Submit Application'
+            blocked ? t('pension_not_eligible_btn')
+            : isEditing ? t('resubmit_application')
+            : t('submit_application')
           }
         />
       </form>
@@ -947,6 +910,7 @@ const DisabilityGrantForm = ({
   onCancelEdit,
   onResubmitted,
 }) => {
+  const { t } = useLanguage();
   const isEditing = !!existingApplication;
   const update = (key, value) => setForm({ ...form, [key]: value });
 
@@ -966,6 +930,7 @@ const DisabilityGrantForm = ({
     form.account_number.trim() &&
     form.account_holder.trim() &&
     form.has_medical_report &&
+    form.medical_report_url &&
     form.truth_declaration &&
     form.data_consent;
 
@@ -984,6 +949,7 @@ const DisabilityGrantForm = ({
         clinic_name: form.clinic_name,
         diagnosis_date: form.diagnosis_date,
         has_medical_report: form.has_medical_report,
+        report_url: form.medical_report_url,
       },
       employment: form.employment,
       payment: {
@@ -1006,7 +972,7 @@ const DisabilityGrantForm = ({
         await resubmitApplication(existingApplication.id, payload);
         if (onResubmitted) onResubmitted();
       } catch (err) {
-        alert('Failed to resubmit: ' + err.message);
+        alert(t('pension_resubmit_failed') + err.message);
       } finally {
         setResubmitting(false);
       }
@@ -1026,10 +992,10 @@ const DisabilityGrantForm = ({
           marginBottom: 20,
         }}>
           <div style={{ fontSize: 15, fontWeight: 'bold', color: '#7a5a00', marginBottom: 6 }}>
-            ✎ Editing — {existingApplication.application_reference}
+            ✎ {t('edit_banner')} — {existingApplication.application_reference}
           </div>
           <div style={{ fontSize: 13, color: '#7a5a00', lineHeight: 1.6, marginBottom: 10 }}>
-            <strong>What Pensions needs:</strong>{' '}
+            <strong>{t('pension_what_needs')}</strong>{' '}
             {existingApplication.notes || existingApplication.rejection_reason}
           </div>
           <button
@@ -1046,26 +1012,20 @@ const DisabilityGrantForm = ({
               cursor: 'pointer',
             }}
           >
-            Cancel editing
+            {t('cancel_editing')}
           </button>
         </div>
       )}
 
       <div className="module-section-title">
-        {isEditing ? 'Update Disability Grant Application' : 'Disability Grant Application'}
+        {isEditing ? t('pension_update_disability') : t('pension_disability_app')}
       </div>
 
-      {!isEditing && (
-        <Alert type="info">
-          The Disability Grant is available to citizens with a certified disability. A medical report
-          from a registered doctor or clinic is required.
-        </Alert>
-      )}
+      {!isEditing && <Alert type="info">{t('pension_disability_info')}</Alert>}
 
       <form onSubmit={handleSubmit}>
-        {/* 1 · APPLICANT */}
         <div className="module-section">
-          <div className="module-section-title">1 · Applicant</div>
+          <div className="module-section-title">{t('pension_step1_applicant')}</div>
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
             <div style={{
               width: 60, height: 60, borderRadius: '50%',
@@ -1083,52 +1043,52 @@ const DisabilityGrantForm = ({
             </div>
             <div style={{ flex: 1, minWidth: 240 }}>
               <div style={{ fontSize: 16, fontWeight: 'bold', color: '#003366' }}>{profile?.full_name}</div>
-              <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>National ID: {profile?.national_id}</div>
+              <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>{t('national_id')}: {profile?.national_id}</div>
               <div style={{ fontSize: 13, color: '#666' }}>
-                Citizenship: <strong>{getCitizenshipDisplay(profile?.citizenship_status)}</strong>
+                {t('citizenship')}: <strong>{getCitizenshipDisplay(profile?.citizenship_status, t)}</strong>
               </div>
             </div>
           </div>
         </div>
 
-        {/* 2 · DISABILITY DETAILS */}
         <div className="module-section">
-          <div className="module-section-title">2 · Disability details</div>
-          <FormField label="Type of Disability" as="select" value={form.disability_type} onChange={(v) => update('disability_type', v)} options={DISABILITY_TYPE_OPTIONS} required />
-          <FormField label="Description (optional)" as="textarea" value={form.disability_description} onChange={(v) => update('disability_description', v)} placeholder="Briefly describe the disability" />
-          <FormField label="Doctor / Practitioner Name" value={form.doctor_name} onChange={(v) => update('doctor_name', v)} placeholder="e.g. Dr T. Mokoena" />
-          <FormField label="Clinic / Hospital" value={form.clinic_name} onChange={(v) => update('clinic_name', v)} placeholder="e.g. Queen Mamohato Memorial Hospital" />
-          <FormField label="Date of Diagnosis" type="date" value={form.diagnosis_date} onChange={(v) => update('diagnosis_date', v)} />
+          <div className="module-section-title">{t('pension_step2_disability')}</div>
+          <FormField label={t('disability_type')} as="select" value={form.disability_type} onChange={(v) => update('disability_type', v)} options={DISABILITY_TYPE_OPTIONS.map((d) => ({ value: d.value, label: t(d.labelKey) }))} required />
+          <FormField label={`${t('description')} (${t('police_optional')})`} as="textarea" value={form.disability_description} onChange={(v) => update('disability_description', v)} placeholder={t('pension_placeholder_disability')} />
+          <FormField label={t('doctor_name')} value={form.doctor_name} onChange={(v) => update('doctor_name', v)} placeholder={t('pension_placeholder_doctor')} />
+          <FormField label={t('clinic_name')} value={form.clinic_name} onChange={(v) => update('clinic_name', v)} placeholder={t('pension_placeholder_clinic')} />
+          <FormField label={t('diagnosis_date')} type="date" value={form.diagnosis_date} onChange={(v) => update('diagnosis_date', v)} />
         </div>
 
-        {/* 3 · EMPLOYMENT (reusable) */}
         <EmploymentSection value={form.employment} onChange={(employment) => update('employment', employment)} />
 
-        {/* 4 · PAYOUT ACCOUNT */}
         <div className="module-section">
-          <div className="module-section-title">4 · Payout account</div>
+          <div className="module-section-title">{t('pension_step3_payout')}</div>
           <PayoutInfoBanner />
-          <FormField label="Bank / Mobile Money" as="select" value={form.bank_name} onChange={handleBankChange} options={BANK_OPTIONS} required />
-          <FormField label="Account Number" value={form.account_number} onChange={(v) => update('account_number', v)} placeholder="e.g. 0123456789" required />
-          <FormField label="Branch Code" value={form.branch_code} onChange={(v) => update('branch_code', v)} />
-          <FormField label="Account Holder Name" value={form.account_holder} onChange={(v) => update('account_holder', v)} required />
-          <FormField label="Account Type" as="select" value={form.account_type} onChange={(v) => update('account_type', v)} options={ACCOUNT_TYPE_OPTIONS} />
+          <FormField label={t('bank_mobile')} as="select" value={form.bank_name} onChange={handleBankChange} options={BANK_OPTIONS.map((b) => ({ value: b.value, label: b.labelKey ? t(b.labelKey) : b.label }))} required />
+          <FormField label={t('account_number')} value={form.account_number} onChange={(v) => update('account_number', v)} placeholder={t('pension_placeholder_account')} required />
+          <FormField label={t('branch_code')} value={form.branch_code} onChange={(v) => update('branch_code', v)} />
+          <FormField label={t('account_holder')} value={form.account_holder} onChange={(v) => update('account_holder', v)} required />
+          <FormField label={t('account_type')} as="select" value={form.account_type} onChange={(v) => update('account_type', v)} options={ACCOUNT_TYPE_OPTIONS.map((a) => ({ value: a.value, label: t(a.labelKey) }))} />
           <PayoutSummary bankName={form.bank_name} accountHolder={form.account_holder} accountNumber={form.account_number} accountType={form.account_type} />
         </div>
 
-        {/* 5 · DECLARATIONS */}
         <div className="module-section" style={{ borderBottom: 'none', paddingBottom: 0 }}>
-          <div className="module-section-title">5 · Declarations</div>
-          <Checkbox checked={form.has_medical_report} onChange={(v) => update('has_medical_report', v)} label="I have a supporting medical report from a registered doctor or clinic." />
-          <Checkbox checked={form.truth_declaration} onChange={(v) => update('truth_declaration', v)} label="I declare that the information provided is true and correct." />
-          <Checkbox checked={form.data_consent} onChange={(v) => update('data_consent', v)} label="I consent to a data verification against Home Affairs and the Ministry of Health." />
+          <div className="module-section-title">{t('pension_step5_medical')}</div>
+
+          <div style={{ background: '#f0f6ff', padding: 16, borderRadius: 8, marginBottom: 16, border: '1px solid #cce0ff' }}>
+            <p style={{ margin: '0 0 12px 0', fontSize: 13, color: '#003366' }}>
+              {t('pension_medical_help')}
+            </p>
+            <CloudinaryUpload label={`${t('upload_medical_report')} *`} onUpload={(url) => update('medical_report_url', url)} />
+          </div>
+
+          <Checkbox checked={form.has_medical_report} onChange={(v) => update('has_medical_report', v)} label={t('confirm_medical')} />
+          <Checkbox checked={form.truth_declaration} onChange={(v) => update('truth_declaration', v)} label={t('pension_declaration_truth')} />
+          <Checkbox checked={form.data_consent} onChange={(v) => update('data_consent', v)} label={t('pension_data_consent_health')} />
         </div>
 
-        <SubmitButton
-          canSubmit={canSubmit && !resubmitting}
-          submitting={submitting || resubmitting}
-          label={isEditing ? 'Resubmit Application' : 'Submit Application'}
-        />
+        <SubmitButton canSubmit={canSubmit && !resubmitting} submitting={submitting || resubmitting} label={isEditing ? t('resubmit_application') : t('submit_application')} />
       </form>
     </div>
   );
@@ -1137,24 +1097,28 @@ const DisabilityGrantForm = ({
 // ============================================================
 // SHARED PIECES
 // ============================================================
-const PayoutInfoBanner = () => (
-  <div style={{
-    background: '#e6f4ea',
-    border: '1px solid #a8d5b8',
-    borderRadius: 6,
-    padding: 14,
-    marginBottom: 16,
-    fontSize: 13,
-    color: '#006600',
-    lineHeight: 1.6,
-  }}>
-    <strong>💰 This is where you will receive your pension payments.</strong>
-    <br />
-    Make sure the account details are correct. Wrong details delay your payments.
-  </div>
-);
+const PayoutInfoBanner = () => {
+  const { t } = useLanguage();
+  return (
+    <div style={{
+      background: '#e6f4ea',
+      border: '1px solid #a8d5b8',
+      borderRadius: 6,
+      padding: 14,
+      marginBottom: 16,
+      fontSize: 13,
+      color: '#006600',
+      lineHeight: 1.6,
+    }}>
+      <strong>💰 {t('pension_payout_banner_title')}</strong>
+      <br />
+      {t('pension_payout_banner_body')}
+    </div>
+  );
+};
 
 const PayoutSummary = ({ bankName, accountHolder, accountNumber, accountType }) => {
+  const { t } = useLanguage();
   const hasAny = bankName || accountHolder || accountNumber;
   if (!hasAny) return null;
 
@@ -1170,12 +1134,12 @@ const PayoutSummary = ({ bankName, accountHolder, accountNumber, accountType }) 
       padding: 16,
     }}>
       <div style={{ fontSize: 13, fontWeight: 'bold', color: '#003366', marginBottom: 10 }}>
-        {isMobile ? '📱 Payout summary — Mobile money' : '💳 Payout summary — Bank account'}
+        {isMobile ? `📱 ${t('pension_summary_mobile')}` : `💳 ${t('pension_summary_bank')}`}
       </div>
-      <SummaryRow label="Bank / Service" value={bankName || '—'} />
-      <SummaryRow label="Account Holder" value={accountHolder || '—'} />
-      <SummaryRow label="Account Number" value={accountNumber || '—'} mono />
-      {!isMobile && <SummaryRow label="Account Type" value={accountType || '—'} />}
+      <SummaryRow label={t('pension_bank_service')} value={bankName || '—'} />
+      <SummaryRow label={t('account_holder')} value={accountHolder || '—'} />
+      <SummaryRow label={t('account_number')} value={accountNumber || '—'} mono />
+      {!isMobile && <SummaryRow label={t('account_type')} value={accountType || '—'} />}
     </div>
   );
 };
@@ -1196,31 +1160,6 @@ const SummaryRow = ({ label, value, mono }) => (
   </div>
 );
 
-const PensionTile = ({ to, icon, title, desc }) => (
-  <Link to={to} style={{ textDecoration: 'none', color: 'inherit' }}>
-    <div style={{
-      border: '1px solid #cce0ff', borderRadius: 10, padding: 20, background: 'white',
-      cursor: 'pointer', height: '100%', boxSizing: 'border-box',
-      transition: 'transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease',
-    }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'translateY(-4px)';
-        e.currentTarget.style.boxShadow = '0 10px 24px rgba(0, 51, 102, 0.15)';
-        e.currentTarget.style.borderColor = '#0055aa';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'translateY(0)';
-        e.currentTarget.style.boxShadow = 'none';
-        e.currentTarget.style.borderColor = '#cce0ff';
-      }}
-    >
-      <div style={{ fontSize: 28, marginBottom: 8 }}>{icon}</div>
-      <div style={{ fontSize: 16, fontWeight: 'bold', color: '#003366', marginBottom: 4 }}>{title}</div>
-      <div style={{ fontSize: 13, color: '#666' }}>{desc}</div>
-    </div>
-  </Link>
-);
-
 const Radio = ({ checked, onChange, label }) => (
   <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: '#333', cursor: 'pointer' }}>
     <input type="radio" checked={checked} onChange={onChange} />
@@ -1237,44 +1176,47 @@ const Checkbox = ({ checked, onChange, label }) => (
   </div>
 );
 
-const SubmitButton = ({ canSubmit, submitting, label = 'Submit Application' }) => (
-  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 24 }}>
-    <button
-      type="submit"
-      disabled={!canSubmit || submitting}
-      style={{
-        background: canSubmit && !submitting
-          ? 'linear-gradient(135deg, #003366 0%, #0055aa 100%)'
-          : '#999',
-        color: 'white', border: 'none', padding: '12px 26px',
-        borderRadius: 999, fontSize: 15, fontWeight: 'bold',
-        cursor: canSubmit && !submitting ? 'pointer' : 'not-allowed',
-        boxShadow: canSubmit && !submitting ? '0 4px 14px rgba(0, 51, 102, 0.25)' : 'none',
-        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-      }}
-      onMouseEnter={(e) => {
-        if (canSubmit && !submitting) {
-          e.currentTarget.style.transform = 'translateY(-2px)';
-          e.currentTarget.style.boxShadow = '0 8px 22px rgba(0, 51, 102, 0.3)';
-        }
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'translateY(0)';
-        e.currentTarget.style.boxShadow = canSubmit && !submitting
-          ? '0 4px 14px rgba(0, 51, 102, 0.25)'
-          : 'none';
-      }}
-    >
-      {submitting ? 'Submitting...' : label}
-    </button>
-    <Link to="/pensions" style={{
-      background: 'white', color: '#003366', border: '1px solid #003366',
-      padding: '11px 24px', borderRadius: 999, fontSize: 14,
-      textDecoration: 'none', display: 'inline-block',
-    }}>
-      Cancel
-    </Link>
-  </div>
-);
+const SubmitButton = ({ canSubmit, submitting, label = 'Submit Application' }) => {
+  const { t } = useLanguage();
+  return (
+    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 24 }}>
+      <button
+        type="submit"
+        disabled={!canSubmit || submitting}
+        style={{
+          background: canSubmit && !submitting
+            ? 'linear-gradient(135deg, #003366 0%, #0055aa 100%)'
+            : '#999',
+          color: 'white', border: 'none', padding: '12px 26px',
+          borderRadius: 999, fontSize: 15, fontWeight: 'bold',
+          cursor: canSubmit && !submitting ? 'pointer' : 'not-allowed',
+          boxShadow: canSubmit && !submitting ? '0 4px 14px rgba(0, 51, 102, 0.25)' : 'none',
+          transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+        }}
+        onMouseEnter={(e) => {
+          if (canSubmit && !submitting) {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 8px 22px rgba(0, 51, 102, 0.3)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = canSubmit && !submitting
+            ? '0 4px 14px rgba(0, 51, 102, 0.25)'
+            : 'none';
+        }}
+      >
+        {submitting ? t('submitting') : label}
+      </button>
+      <Link to="/pensions" style={{
+        background: 'white', color: '#003366', border: '1px solid #003366',
+        padding: '11px 24px', borderRadius: 999, fontSize: 14,
+        textDecoration: 'none', display: 'inline-block',
+      }}>
+        {t('cancel')}
+      </Link>
+    </div>
+  );
+};
 
 export default PensionsModule;

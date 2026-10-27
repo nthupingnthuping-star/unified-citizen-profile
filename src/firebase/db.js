@@ -195,6 +195,32 @@ export async function updateCitizenContact(uid, { residential_address, phone_num
   });
 }
 
+// NEW: Update Personal Details (Name, ID, DOB, Gender)
+export async function updateCitizenPersonalDetails(uid, { national_id, date_of_birth, gender, full_name }) {
+  if (!uid) return;
+  await updateDoc(doc(db, 'citizens', uid), {
+    national_id,
+    date_of_birth,
+    gender,
+    full_name,
+    profile_completed: true,
+    updated_at: serverTimestamp(),
+  });
+}
+
+// ============================================================
+// UNBLOCK ID (If citizen finds their lost ID)
+// ============================================================
+export async function unblockCitizenId(citizenId) {
+  if (!citizenId) throw new Error('citizenId is required');
+  
+  await updateDoc(doc(db, 'citizens', citizenId), {
+    id_status: 'active',
+    id_blocked: false,
+    id_unblocked_at: serverTimestamp(),
+  });
+}
+
 // ============================================================
 // APPLICATIONS — SUBMIT
 // ============================================================
@@ -235,9 +261,7 @@ export async function submitApplication({
     }
   }
 
-  // ============================================================
   // OLD AGE PENSION — block government employees
-  // ============================================================
   if (service_type === 'Old Age Pension') {
     const empType = application_data?.employment?.employment_type;
     if (empType === 'Government') {
@@ -374,6 +398,92 @@ export async function submitApplication({
   });
 
   return { id: docRef.id, reference, case_number: assigned_case_number, priority };
+}
+
+// ============================================================
+// TRAFFIC FINES
+// ============================================================
+export async function getMyTrafficFines(citizenId) {
+  if (!citizenId) return [];
+  const q = query(collection(db, 'traffic_fines'), where('citizen_id', '==', citizenId));
+  const snapshot = await getDocs(q);
+  const fines = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  fines.sort((a, b) => {
+    const aTime = a.issued_at?.toMillis?.() || 0;
+    const bTime = b.issued_at?.toMillis?.() || 0;
+    return bTime - aTime;
+  });
+  return fines;
+}
+
+export async function payTrafficFine(fineId, paymentDetails) {
+  const fineRef = doc(db, 'traffic_fines', fineId);
+  
+  await updateDoc(fineRef, {
+    status: 'processing',
+    payment: paymentDetails,
+    proof_of_payment_url: paymentDetails.proof_of_payment_url,
+    paid_at: serverTimestamp(),
+  });
+
+  const fineSnap = await getDoc(fineRef);
+  if (fineSnap.exists()) {
+    const fine = fineSnap.data();
+    await createNotification(fine.citizen_id, {
+      title: 'Payment Submitted',
+      message: `Your payment for fine (${fine.fine_number}) is being verified by the Traffic Department.`,
+      type: 'info',
+    });
+  }
+}
+
+export async function issueTrafficFine({ citizen_id, citizen_name, fine_number, offence, amount, issued_by }) {
+  await addDoc(collection(db, 'traffic_fines'), {
+    citizen_id,
+    citizen_name,
+    fine_number,
+    offence,
+    amount: Number(amount),
+    status: 'unpaid',
+    issued_by,
+    issued_at: serverTimestamp(),
+  });
+
+  await createNotification(citizen_id, {
+    title: '🚨 New Traffic Fine Issued',
+    message: `A traffic fine of M ${amount} has been issued to your account for: ${offence}. Please log in to view and pay.`,
+    type: 'warning',
+  });
+}
+
+export async function getAllTrafficFines() {
+  const q = query(collection(db, 'traffic_fines'));
+  const snapshot = await getDocs(q);
+  const fines = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  fines.sort((a, b) => {
+    const aTime = a.issued_at?.toMillis?.() || 0;
+    const bTime = b.issued_at?.toMillis?.() || 0;
+    return bTime - aTime;
+  });
+  return fines;
+}
+
+export async function approveTrafficFinePayment(fineId) {
+  const fineRef = doc(db, 'traffic_fines', fineId);
+  await updateDoc(fineRef, {
+    status: 'paid',
+    verified_at: serverTimestamp(),
+  });
+
+  const fineSnap = await getDoc(fineRef);
+  if (fineSnap.exists()) {
+    const fine = fineSnap.data();
+    await createNotification(fine.citizen_id, {
+      title: '✓ Traffic Fine Payment Approved',
+      message: `Your payment for fine (${fine.fine_number}) has been verified and approved. Thank you.`,
+      type: 'success',
+    });
+  }
 }
 
 // ============================================================
@@ -625,6 +735,18 @@ export async function updateApplicationStatus(applicationId, action, staffId, re
   const appSnap = await getDoc(doc(db, 'applications', applicationId));
   if (appSnap.exists()) {
     const app = appSnap.data();
+    
+    // AUTO-UPDATE CITIZEN NAME ON CHANGE OF NAME APPROVAL
+    if (action === 'approve' && app.service_type === 'Change of Name') {
+      const newName = app.application_data?.new_name;
+      if (newName) {
+        await updateDoc(doc(db, 'citizens', app.citizen_id), {
+          full_name: newName,
+          updated_at: serverTimestamp(),
+        });
+      }
+    }
+
     await createNotification(app.citizen_id, {
       title: `Application ${newStatus}`,
       message: `Your ${app.service_type} application has been ${newStatus}. ${reason || ''}`,
@@ -643,8 +765,6 @@ export async function updateApplicationStatus(applicationId, action, staffId, re
 
 // ============================================================
 // RESUBMIT APPLICATION
-// Used when staff requested more info and the citizen edits
-// their application. Resets status to 'pending' for re-review.
 // ============================================================
 export async function resubmitApplication(applicationId, newApplicationData, staffNote = '') {
   if (!applicationId) throw new Error('applicationId is required');
@@ -1024,18 +1144,6 @@ export async function getApplicationByReference(reference) {
   return { id: docData.id, ...docData.data() };
 }
 
-/**
- * Returns the public verification URL that a certificate QR code
- * should encode.
- *
- * IMPORTANT: This MUST always return the production URL. Certificates
- * are printed / shown to third parties and scanned from any phone or
- * country — they must never encode localhost or a LAN IP.
- *
- * If you want to test the verify page locally during development,
- * set REACT_APP_PUBLIC_VERIFY_URL in a local .env file — but NEVER
- * commit that override.
- */
 export function getCertificateVerifyUrl(reference) {
   const baseUrl =
     process.env.REACT_APP_PUBLIC_VERIFY_URL ||
@@ -1218,9 +1326,6 @@ export async function getMyFundRecord(citizenId) {
 }
 
 export async function createFundRecord(citizenId, data) {
-  // ============================================================
-  // VALIDATION — prevent fraudulent or impossible fund records
-  // ============================================================
   const errors = [];
 
   const months = Number(data.months_of_service) || 0;
@@ -1251,9 +1356,6 @@ export async function createFundRecord(citizenId, data) {
     throw new Error('Validation failed: ' + errors.join(' '));
   }
 
-  // ============================================================
-  // SAVE — with totals computed server-side
-  // ============================================================
   const totalFundCredit = member + employer + investment;
 
   await setDoc(doc(db, 'pension_fund_records', citizenId), {
@@ -1273,6 +1375,12 @@ export async function createFundRecord(citizenId, data) {
     last_contribution_date: data.last_contribution_date || serverTimestamp(),
     employment_branch: data.employment_branch || 'Public Service',
     retirement_age: RETIREMENT_AGES[data.employment_branch] || 60,
+
+    // SAVE DOCUMENTS
+    documents_uploaded: {
+      payslip_url: data.documents_uploaded?.payslip_url || null,
+      employment_letter_url: data.documents_uploaded?.employment_letter_url || null,
+    },
 
     verification_status: 'pending',
     submitted_for_verification_at: serverTimestamp(),

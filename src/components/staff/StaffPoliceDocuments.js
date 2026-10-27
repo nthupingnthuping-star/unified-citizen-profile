@@ -4,7 +4,6 @@ import {
   getPoliceDocumentApplications,
   updateApplicationStatus,
 } from '../../firebase/db';
-import Card from '../common/Card';
 import Alert from '../common/Alert';
 import Badge from '../common/Badge';
 import Table from '../common/Table';
@@ -28,6 +27,7 @@ const StaffPoliceDocuments = () => {
   const load = async () => {
     setLoading(true);
     try {
+      // Fetching all police docs instead of filtering strictly by clearance
       const data = await getPoliceDocumentApplications(activeTab);
       setApps(data);
     } catch (err) {
@@ -66,9 +66,9 @@ const StaffPoliceDocuments = () => {
 
   const subTabStyle = (tab) => ({
     padding: '8px 16px',
-    background: activeTab === tab ? '#0055aa' : 'white',
+    background: activeTab === tab ? '#003366' : 'white',
     color: activeTab === tab ? 'white' : '#333',
-    border: '1px solid #ddd',
+    border: '1px solid #e2e8f0',
     borderRadius: 999,
     cursor: 'pointer',
     marginRight: 8,
@@ -98,7 +98,7 @@ const StaffPoliceDocuments = () => {
       </div>
 
       <div className="module-card">
-        <div className="module-section-title">Police Clearance Applications — {activeTab}</div>
+        <div className="module-section-title">Police Applications — {activeTab.toUpperCase()}</div>
 
         {loading ? (
           <div style={{ padding: 30, textAlign: 'center' }}>Loading...</div>
@@ -108,11 +108,11 @@ const StaffPoliceDocuments = () => {
           </div>
         ) : (
           <Table
-            headers={['Reference', 'Citizen', 'Purpose', 'Submitted', 'Status', 'Action']}
+            headers={['Reference', 'Service Type', 'Citizen', 'Submitted', 'Status', 'Action']}
             rows={apps.map((a) => [
               a.application_reference,
+              a.service_type,
               a.citizen_name,
-              a.application_data?.purpose || '—',
               a.submitted_at?.toDate?.().toLocaleDateString() || '—',
               <Badge color={statusColor(a.status)}>{a.status}</Badge>,
               <button
@@ -177,7 +177,7 @@ const ReviewModal = ({ application, onClose, onAction }) => {
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
           <h2 style={{ margin: 0, color: '#003366', fontSize: 20 }}>
-            Police Clearance {application.application_reference}
+            {application.service_type} {application.application_reference}
           </h2>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', fontSize: 22, cursor: 'pointer' }}>×</button>
         </div>
@@ -187,27 +187,22 @@ const ReviewModal = ({ application, onClose, onAction }) => {
           <Field label="National ID" value={application.citizen_national_id} />
         </Section>
 
-        <Section title="Application">
-          <Field label="Purpose" value={data.purpose} />
-          <Field label="Destination" value={data.destination_country} />
-          <Field label="Period of Stay" value={data.period_of_stay} />
-          <Field label="Collection Branch" value={data.collection_branch} />
+        <Section title="Application Details">
+          {/* Dynamically render application data based on service type */}
+          {Object.entries(data).map(([key, val]) => {
+            if (key === 'documents_uploaded' || key === 'declarations' || typeof val === 'object') return null;
+            return <Field key={key} label={key.replace(/_/g, ' ')} value={String(val)} />;
+          })}
           <Field label="Payment Reference" value={data.payment?.reference} />
           <Field label="Fee" value={data.fees?.total ? `M ${data.fees.total}` : '—'} />
         </Section>
 
         {hasUploads && (
           <Section title="Documents Uploaded by Citizen">
-            {uploads.national_id && <DocumentLink label="National ID" url={uploads.national_id} />}
-            {uploads.fingerprints && <DocumentLink label="Fingerprint Record" url={uploads.fingerprints} />}
-          </Section>
-        )}
-
-        {hasLegacyDeclared && !hasUploads && (
-          <Section title="Documents Declared (legacy)">
-            <Field label="Passport Photos" value={legacyDeclared.photos ? 'Yes' : 'No'} />
-            <Field label="National ID" value={legacyDeclared.national_id ? 'Yes' : 'No'} />
-            <Field label="Fingerprints" value={legacyDeclared.fingerprints ? 'Yes' : 'No'} />
+            {Object.entries(uploads).map(([key, url]) => {
+              if (!url) return null;
+              return <DocumentLink key={key} label={key.replace(/_/g, ' ')} url={url} />;
+            })}
           </Section>
         )}
 
@@ -266,20 +261,20 @@ const Section = ({ title, children }) => (
     }}>
       {title}
     </div>
-    <div style={{ background: '#f9f9f9', borderRadius: 6, padding: 12 }}>{children}</div>
+    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 16 }}>{children}</div>
   </div>
 );
 
 const Field = ({ label, value }) => (
-  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13 }}>
-    <span style={{ color: '#666' }}>{label}:</span>
-    <span style={{ fontWeight: 'bold', color: '#003366' }}>{value || '—'}</span>
+  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 13 }}>
+    <span style={{ color: '#64748b', textTransform: 'capitalize' }}>{label}:</span>
+    <span style={{ fontWeight: 'bold', color: '#0f172a', textAlign: 'right' }}>{value || '—'}</span>
   </div>
 );
 
 const DocumentLink = ({ label, url }) => (
   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 13 }}>
-    <span style={{ color: '#666' }}>{label}:</span>
+    <span style={{ color: '#64748b', textTransform: 'capitalize' }}>{label}:</span>
     <a
       href={url}
       target="_blank"

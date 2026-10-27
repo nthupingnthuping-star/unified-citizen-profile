@@ -1,18 +1,40 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { getDepartmentAnalytics, DEPARTMENTS } from '../../firebase/db';
+import { useLanguage } from '../../i18n/LanguageContext';
+import {
+  getDepartmentAnalytics,
+  DEPARTMENTS,
+  DEPARTMENT_NAMES
+} from '../../firebase/db';
 import { assetPath } from '../../utils/assetPath';
 import StaffLayout from '../common/StaffLayout';
 import '../../styles/module.css';
 
 const StaffDashboard = () => {
   const { profile } = useAuth();
+  const { t } = useLanguage();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Dynamically get the department ID and Name
   const departmentId = profile?.department_id || DEPARTMENTS.FINANCE;
-  const departmentName = profile?.department_name || 'Ministry of Finance / RSL';
+  const departmentName = DEPARTMENT_NAMES[departmentId] || 'Ministry of Finance / RSL';
+
+  // Dynamically generate the email based on the department
+  const getDepartmentEmail = (deptId) => {
+    switch (deptId) {
+      case DEPARTMENTS.HOME_AFFAIRS: return 'home_affairs_officer@ucps.gov.ls';
+      case DEPARTMENTS.TRAFFIC: return 'traffic_officer@ucps.gov.ls';
+      case DEPARTMENTS.FINANCE: return 'finance_officer@ucps.gov.ls';
+      case DEPARTMENTS.PENSIONS: return 'pension_officer@ucps.gov.ls';
+      case DEPARTMENTS.POLICE: return 'police_officer@ucps.gov.ls';
+      case DEPARTMENTS.PASSPORT: return 'passport_officer@ucps.gov.ls';
+      default: return 'staff@ucps.gov.ls';
+    }
+  };
+
+  const staffEmail = getDepartmentEmail(departmentId);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -21,6 +43,7 @@ const StaffDashboard = () => {
         const data = await getDepartmentAnalytics(departmentId);
         setStats(data);
       } catch (err) {
+        console.error(err);
         setStats({ pending: 0, approved: 0, total: 0 });
       } finally {
         setLoading(false);
@@ -40,12 +63,10 @@ const StaffDashboard = () => {
     { id: 'APP-2025-00123', service: 'Tax Clearance Certificate', date: '12 Oct 2025', status: 'Approved', color: '#dcfce7', textColor: '#166534' },
     { id: 'APP-2025-00122', service: 'Passport Application', date: '08 Oct 2025', status: 'In Progress', color: '#dbeafe', textColor: '#1e40af' },
     { id: 'APP-2025-00121', service: 'Business Registration', date: '03 Oct 2025', status: 'Pending', color: '#fef3c7', textColor: '#92400e' },
-    { id: 'APP-2025-00120', service: "Driver's License Renewal", date: '28 Sep 2025', status: 'Approved', color: '#dcfce7', textColor: '#166534' },
-    { id: 'APP-2025-00119', service: 'Birth Certificate Request', date: '20 Sep 2025', status: 'Completed', color: '#f1f5f9', textColor: '#475569' },
   ];
 
   return (
-    <StaffLayout title="Dashboard">
+    <StaffLayout title={t('dashboard')}>
       <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
         
         {/* LEFT COLUMN */}
@@ -80,7 +101,7 @@ const StaffDashboard = () => {
                     <div style={{ width: 32, height: 32, borderRadius: 8, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' }}>✉️</div>
                     <div>
                       <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Email</div>
-                      <div style={{ fontSize: 13, color: '#0f172a', fontWeight: 700 }}>{profile?.email}</div>
+                      <div style={{ fontSize: 13, color: '#0f172a', fontWeight: 700 }}>{staffEmail}</div>
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -103,10 +124,12 @@ const StaffDashboard = () => {
                 <Link to="/staff/queue" style={{ fontSize: 13, color: '#3b82f6', fontWeight: 600, textDecoration: 'none' }}>View All Services →</Link>
               </div>
               <p style={{ margin: '0 0 20px 0', fontSize: 13, color: '#64748b' }}>Access government services and manage your applications.</p>
+              
+              {/* Dynamic Queue Link */}
               <Link to="/staff/queue" style={{ display: 'flex', alignItems: 'center', gap: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: 16, textDecoration: 'none', transition: 'all 0.2s ease' }}>
                 <div style={{ width: 44, height: 44, borderRadius: 8, background: '#3b82f6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>📄</div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Application Queue</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>{departmentName} Queue</div>
                   <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>View and manage your submitted applications.</div>
                 </div>
                 <span style={{ color: '#3b82f6', fontSize: 18 }}>→</span>

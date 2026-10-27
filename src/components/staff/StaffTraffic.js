@@ -3,6 +3,10 @@ import { useAuth } from '../../contexts/AuthContext';
 import {
   getDepartmentApplications,
   updateApplicationStatus,
+  issueTrafficFine,
+  getAllTrafficFines,
+  approveTrafficFinePayment, // <-- Imported
+  searchCitizens,
   DEPARTMENTS,
 } from '../../firebase/db';
 import StaffLayout from '../common/StaffLayout';
@@ -20,6 +24,42 @@ const STATUS_TABS = [
 ];
 
 const StaffTraffic = () => {
+  const [view, setView] = useState('applications');
+
+  return (
+    <StaffLayout title="Department of Traffic and Transport — Staff Portal">
+      <div className="module-root">
+        <div className="module-header">
+          <h1>Department of Traffic and Transport</h1>
+          <p>Process learner licenses, driver's licenses, roadworthy certificates, and issue fines</p>
+        </div>
+
+        <div className="module-tabs" style={{ marginBottom: 20 }}>
+          <button
+            onClick={() => setView('applications')}
+            className={`module-tab ${view === 'applications' ? 'active' : ''}`}
+          >
+            📄 Applications Queue
+          </button>
+          <button
+            onClick={() => setView('fines')}
+            className={`module-tab ${view === 'fines' ? 'active' : ''}`}
+          >
+            🚨 Traffic Fines
+          </button>
+        </div>
+
+        {view === 'applications' && <TrafficApplicationsQueue />}
+        {view === 'fines' && <StaffTrafficFines />}
+      </div>
+    </StaffLayout>
+  );
+};
+
+// ============================================================
+// TAB 1: APPLICATIONS QUEUE
+// ============================================================
+const TrafficApplicationsQueue = () => {
   const { profile } = useAuth();
   const [applications, setApplications] = useState([]);
   const [activeStatus, setActiveStatus] = useState('pending');
@@ -84,101 +124,310 @@ const StaffTraffic = () => {
   });
 
   return (
-    <StaffLayout title="Department of Traffic and Transport — Staff Portal">
-      <div className="module-root">
-        <div className="module-header">
-          <h1>Department of Traffic and Transport</h1>
-          <p>Process learner licenses, driver's licenses, roadworthy certificates, and vehicle registrations</p>
-        </div>
+    <>
+      <Alert type="info">
+        Review applications submitted by citizens. Approve, reject, or request more information.
+      </Alert>
 
-        <Alert type="info">
-          Review applications submitted by citizens. Approve, reject, or request more information.
+      {message && (
+        <Alert
+          type={message.toLowerCase().includes('error') || message.toLowerCase().includes('failed') ? 'error' : 'success'}
+          onClose={() => setMessage('')}
+        >
+          {message}
         </Alert>
+      )}
 
-        {message && (
-          <Alert
-            type={message.toLowerCase().includes('error') || message.toLowerCase().includes('failed') ? 'error' : 'success'}
-            onClose={() => setMessage('')}
+      <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        {STATUS_TABS.map((t) => (
+          <button
+            key={t.key}
+            style={subTabStyle(t.key)}
+            onClick={() => setActiveStatus(t.key)}
           >
-            {message}
-          </Alert>
-        )}
+            {t.label}
+            {t.key === 'pending' && pendingCount > 0 && activeStatus === 'pending' && (
+              <span style={{
+                background: 'white',
+                color: '#003366',
+                borderRadius: 12,
+                padding: '2px 8px',
+                fontSize: 11,
+                fontWeight: 'bold',
+                marginLeft: 8,
+              }}>
+                {pendingCount}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
 
-        <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {STATUS_TABS.map((t) => (
-            <button
-              key={t.key}
-              style={subTabStyle(t.key)}
-              onClick={() => setActiveStatus(t.key)}
-            >
-              {t.label}
-              {t.key === 'pending' && pendingCount > 0 && activeStatus === 'pending' && (
-                <span style={{
-                  background: 'white',
-                  color: '#003366',
-                  borderRadius: 12,
-                  padding: '2px 8px',
-                  fontSize: 11,
-                  fontWeight: 'bold',
-                  marginLeft: 8,
-                }}>
-                  {pendingCount}
-                </span>
-              )}
-            </button>
-          ))}
+      <div className="module-card">
+        <div className="module-section-title">
+          Traffic Applications — {activeStatus}
         </div>
 
-        <div className="module-card">
-          <div className="module-section-title">
-            Traffic Applications — {activeStatus}
+        {loading ? (
+          <div style={{ padding: 30, textAlign: 'center' }}>Loading...</div>
+        ) : applications.length === 0 ? (
+          <div style={{ padding: 30, textAlign: 'center', color: '#666' }}>
+            No applications in this category.
           </div>
-
-          {loading ? (
-            <div style={{ padding: 30, textAlign: 'center' }}>Loading...</div>
-          ) : applications.length === 0 ? (
-            <div style={{ padding: 30, textAlign: 'center', color: '#666' }}>
-              No applications in this category.
-            </div>
-          ) : (
-            <Table
-              headers={['Reference', 'Citizen', 'Service', 'Submitted', 'Status', 'Action']}
-              rows={applications.map((a) => [
-                a.application_reference,
-                a.citizen_name,
-                a.service_type,
-                a.submitted_at?.toDate?.().toLocaleDateString() || '—',
-                <Badge color={statusColor(a.status)}>{a.status}</Badge>,
-                <button
-                  onClick={() => setSelected(a)}
-                  style={{
-                    background: 'linear-gradient(135deg, #003366 0%, #0055aa 100%)',
-                    color: 'white',
-                    border: 'none',
-                    padding: '6px 14px',
-                    borderRadius: 999,
-                    fontSize: 12,
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 8px rgba(0, 51, 102, 0.2)',
-                  }}
-                >
-                  Review
-                </button>,
-              ])}
-            />
-          )}
-        </div>
-
-        {selected && (
-          <ReviewModal
-            application={selected}
-            onClose={() => setSelected(null)}
-            onAction={handleAction}
+        ) : (
+          <Table
+            headers={['Reference', 'Citizen', 'Service', 'Submitted', 'Status', 'Action']}
+            rows={applications.map((a) => [
+              a.application_reference,
+              a.citizen_name,
+              a.service_type,
+              a.submitted_at?.toDate?.().toLocaleDateString() || '—',
+              <Badge color={statusColor(a.status)}>{a.status}</Badge>,
+              <button
+                onClick={() => setSelected(a)}
+                style={{
+                  background: 'linear-gradient(135deg, #003366 0%, #0055aa 100%)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '6px 14px',
+                  borderRadius: 999,
+                  fontSize: 12,
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(0, 51, 102, 0.2)',
+                }}
+              >
+                Review
+              </button>,
+            ])}
           />
         )}
       </div>
-    </StaffLayout>
+
+      {selected && (
+        <ReviewModal
+          application={selected}
+          onClose={() => setSelected(null)}
+          onAction={handleAction}
+        />
+      )}
+    </>
+  );
+};
+
+// ============================================================
+// TAB 2: TRAFFIC FINES (WITH RECEIPT VERIFICATION)
+// ============================================================
+const StaffTrafficFines = () => {
+  const { profile } = useAuth();
+  const [fines, setFines] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showIssueForm, setShowIssueForm] = useState(false);
+
+  // Form state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  
+  const [selectedCitizen, setSelectedCitizen] = useState(null);
+  const [offence, setOffence] = useState('');
+  const [amount, setAmount] = useState('');
+  const [issuing, setIssuing] = useState(false);
+
+  const loadFines = async () => {
+    setLoading(true);
+    try {
+      const data = await getAllTrafficFines();
+      setFines(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadFines(); }, []);
+
+  const handleSearch = async () => {
+    if (searchQuery.length < 3) return;
+    setIsSearching(true);
+    try {
+      const results = await searchCitizens(searchQuery);
+      setSearchResults(results);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleIssueFine = async (e) => {
+    e.preventDefault();
+    if (!selectedCitizen || !offence || !amount) return;
+    setIssuing(true);
+    try {
+      const fineNum = `TF-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000)}`;
+      
+      await issueTrafficFine({
+        citizen_id: selectedCitizen.id,
+        citizen_name: selectedCitizen.full_name,
+        fine_number: fineNum,
+        offence,
+        amount: Number(amount),
+        issued_by: profile.full_name || profile.uid,
+      });
+      
+      alert(`Fine ${fineNum} issued successfully to ${selectedCitizen.full_name}!`);
+      setShowIssueForm(false);
+      resetForm();
+      loadFines();
+    } catch (err) {
+      alert('Failed to issue fine: ' + err.message);
+    } finally {
+      setIssuing(false);
+    }
+  };
+
+  const handleApprovePayment = async (fineId) => {
+    if (!window.confirm("Approve this payment? The fine will be marked as PAID.")) return;
+    try {
+      await approveTrafficFinePayment(fineId);
+      alert('Payment approved successfully!');
+      loadFines();
+    } catch (err) {
+      alert('Failed to approve payment: ' + err.message);
+    }
+  };
+
+  const resetForm = () => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setSelectedCitizen(null);
+    setOffence('');
+    setAmount('');
+  };
+
+  return (
+    <>
+      <Alert type="warning">Manage fines issued to citizens. Click "View Receipt" to verify bank deposits before approving.</Alert>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+        <button
+          onClick={() => { setShowIssueForm(!showIssueForm); if(showIssueForm) resetForm(); }}
+          style={{ background: '#006600', color: 'white', border: 'none', padding: '10px 20px', borderRadius: 999, fontWeight: 'bold', cursor: 'pointer' }}
+        >
+          {showIssueForm ? 'Cancel' : '+ Issue New Fine'}
+        </button>
+      </div>
+
+      {showIssueForm && (
+        <div className="module-card" style={{ marginBottom: 20, background: '#f0fdf4' }}>
+          <div className="module-section-title">Issue a Traffic Fine</div>
+          
+          {!selectedCitizen && (
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 8 }}>Find Citizen by Name or National ID</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input 
+                  type="text" 
+                  value={searchQuery} 
+                  onChange={(e) => setSearchQuery(e.target.value)} 
+                  placeholder="e.g. Mamoholi Pitso or 0355667882346" 
+                  style={{ flex: 1, padding: 10, border: '1px solid #ccc', borderRadius: 6 }} 
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                />
+                <button type="button" onClick={handleSearch} disabled={isSearching} style={{ background: '#003366', color: 'white', border: 'none', padding: '10px 20px', borderRadius: 6, fontWeight: 'bold', cursor: 'pointer' }}>
+                  {isSearching ? 'Searching...' : 'Search'}
+                </button>
+              </div>
+
+              {searchResults.length > 0 && (
+                <div style={{ marginTop: 12, background: 'white', border: '1px solid #e2e8f0', borderRadius: 6, maxHeight: 200, overflowY: 'auto' }}>
+                  {searchResults.map(c => (
+                    <div key={c.id} onClick={() => setSelectedCitizen(c)} style={{ padding: 12, borderBottom: '1px solid #eee', cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }} onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={(e) => e.currentTarget.style.background = 'white'}>
+                      <div>
+                        <div style={{ fontWeight: 'bold', color: '#003366' }}>{c.full_name}</div>
+                        <div style={{ fontSize: 12, color: '#666' }}>ID: {c.national_id}</div>
+                      </div>
+                      <div style={{ fontSize: 12, color: '#0055aa', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>Select →</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {selectedCitizen && (
+            <form onSubmit={handleIssueFine} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              
+              <div style={{ background: '#dcfce7', padding: 16, borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 12, color: '#166534', fontWeight: 'bold' }}>ISSUING FINE TO:</div>
+                  <div style={{ fontSize: 16, fontWeight: 'bold', color: '#0f172a' }}>{selectedCitizen.full_name}</div>
+                  <div style={{ fontSize: 13, color: '#166534' }}>National ID: {selectedCitizen.national_id}</div>
+                </div>
+                <button type="button" onClick={() => setSelectedCitizen(null)} style={{ background: 'transparent', border: 'none', color: '#166534', fontWeight: 'bold', textDecoration: 'underline', cursor: 'pointer' }}>Change Person</button>
+              </div>
+
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                <div style={{ flex: 2, minWidth: 200 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 'bold', marginBottom: 4 }}>Offence</label>
+                  <input type="text" value={offence} onChange={(e) => setOffence(e.target.value)} placeholder="e.g. Speeding, No Seatbelt" style={{ width: '100%', padding: 10, border: '1px solid #ccc', borderRadius: 6 }} required />
+                </div>
+                <div style={{ flex: 1, minWidth: 100 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 'bold', marginBottom: 4 }}>Amount (M)</label>
+                  <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="200" style={{ width: '100%', padding: 10, border: '1px solid #ccc', borderRadius: 6 }} required />
+                </div>
+              </div>
+
+              <div>
+                <button type="submit" disabled={issuing} style={{ background: '#006600', color: 'white', border: 'none', padding: '12px 24px', borderRadius: 6, fontWeight: 'bold', cursor: issuing ? 'not-allowed' : 'pointer', width: '100%' }}>
+                  {issuing ? 'Issuing...' : 'Issue Fine'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
+
+      <div className="module-card">
+        <div className="module-section-title">All Issued Fines</div>
+        {loading ? <p>Loading...</p> : (
+          <Table
+            headers={['Fine No.', 'Citizen', 'Offence', 'Amount', 'Status', 'Proof of Payment', 'Action']}
+            rows={fines.map((fine) => [
+              fine.fine_number,
+              <div>
+                <div style={{ fontWeight: 'bold' }}>{fine.citizen_name || 'Unknown'}</div>
+                <div style={{ fontSize: 11, color: '#666' }}>ID: {fine.citizen_id.slice(-6)}</div>
+              </div>,
+              fine.offence,
+              `M ${fine.amount.toFixed(2)}`,
+              <Badge color={fine.status === 'paid' ? 'green' : fine.status === 'processing' ? 'yellow' : 'red'}>
+                {fine.status.toUpperCase()}
+              </Badge>,
+              fine.proof_of_payment_url ? (
+                <a href={fine.proof_of_payment_url} target="_blank" rel="noreferrer" style={{ color: '#0055aa', fontWeight: 'bold', textDecoration: 'underline', fontSize: 12 }}>
+                  📄 View Receipt
+                </a>
+              ) : (
+                <span style={{ color: '#999', fontSize: 12 }}>—</span>
+              ),
+              fine.status === 'processing' ? (
+                <button
+                  onClick={() => handleApprovePayment(fine.id)}
+                  style={{ background: '#006600', color: 'white', border: 'none', padding: '6px 12px', borderRadius: 6, fontSize: 12, fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  ✓ Approve
+                </button>
+              ) : (
+                <span style={{ color: '#999', fontSize: 12 }}>—</span>
+              ),
+            ])}
+          />
+        )}
+      </div>
+    </>
   );
 };
 

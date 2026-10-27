@@ -5,6 +5,7 @@ import {
   getDepartmentApplications,
   updateApplicationStatus,
   DEPARTMENT_NAMES,
+  DEPARTMENTS,
 } from '../../firebase/db';
 import StaffLayout from '../common/StaffLayout';
 import Card from '../common/Card';
@@ -13,9 +14,18 @@ import Alert from '../common/Alert';
 import Badge from '../common/Badge';
 import Table from '../common/Table';
 
-const StaffQueue = ({ departmentId }) => {
+// Import specific queue components if you have them
+// import StaffTrafficQueue from './StaffTrafficQueue';
+// import StaffPoliceQueue from './StaffPoliceQueue';
+
+const StaffQueue = ({ departmentId: propDepartmentId }) => {
   const { profile } = useAuth();
   const { t } = useLanguage();
+  
+  // 1. Determine the correct department
+  // If a departmentId is passed as a prop, use it. Otherwise, use the logged-in staff member's department.
+  const activeDepartmentId = propDepartmentId || profile?.department_id || DEPARTMENTS.FINANCE;
+
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
@@ -26,7 +36,8 @@ const StaffQueue = ({ departmentId }) => {
     const load = async () => {
       setLoading(true);
       try {
-        const apps = await getDepartmentApplications(departmentId, filter);
+        // 2. Fetch applications strictly for this department
+        const apps = await getDepartmentApplications(activeDepartmentId, filter);
         setApplications(apps);
       } catch (err) {
         console.error(err);
@@ -36,7 +47,7 @@ const StaffQueue = ({ departmentId }) => {
       }
     };
     load();
-  }, [departmentId, filter, refreshKey]);
+  }, [activeDepartmentId, filter, refreshKey]);
 
   const handleAction = async (applicationId, action) => {
     let reason = '';
@@ -78,8 +89,9 @@ const StaffQueue = ({ departmentId }) => {
     fontSize: 13,
   });
 
-  const deptName = DEPARTMENT_NAMES[departmentId] || 'Department';
+  const deptName = DEPARTMENT_NAMES[activeDepartmentId] || 'Department';
 
+  // 3. Ensure we pull the correct name for the header
   return (
     <StaffLayout title={`${deptName} — ${t('application_queue')}`}>
       <Alert type="info">
