@@ -10,7 +10,7 @@ import Table from '../common/Table';
 
 const STATUS_TABS = [
   { key: 'pending', label: 'Pending' },
-  { key: 'processing', label: 'Processing' },
+  { key: 'processing', label: 'Needs Info' },
   { key: 'approved', label: 'Approved' },
   { key: 'rejected', label: 'Rejected' },
   { key: 'all', label: 'All' },
@@ -27,7 +27,6 @@ const StaffPoliceDocuments = () => {
   const load = async () => {
     setLoading(true);
     try {
-      // Fetching all police docs instead of filtering strictly by clearance
       const data = await getPoliceDocumentApplications(activeTab);
       setApps(data);
     } catch (err) {
@@ -59,7 +58,7 @@ const StaffPoliceDocuments = () => {
 
   const statusColor = (s) => {
     if (s === 'approved' || s === 'completed') return 'green';
-    if (s === 'rejected') return 'red';
+    if (s === 'rejected' || s === 'cancelled') return 'red';
     if (s === 'processing') return 'yellow';
     return 'gray';
   };
@@ -98,7 +97,7 @@ const StaffPoliceDocuments = () => {
       </div>
 
       <div className="module-card">
-        <div className="module-section-title">Police Applications — {activeTab.toUpperCase()}</div>
+        <div className="module-section-title">Police Applications Queue — {activeTab.toUpperCase()}</div>
 
         {loading ? (
           <div style={{ padding: 30, textAlign: 'center' }}>Loading...</div>
@@ -188,7 +187,6 @@ const ReviewModal = ({ application, onClose, onAction }) => {
         </Section>
 
         <Section title="Application Details">
-          {/* Dynamically render application data based on service type */}
           {Object.entries(data).map(([key, val]) => {
             if (key === 'documents_uploaded' || key === 'declarations' || typeof val === 'object') return null;
             return <Field key={key} label={key.replace(/_/g, ' ')} value={String(val)} />;

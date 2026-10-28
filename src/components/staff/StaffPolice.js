@@ -41,7 +41,7 @@ const StaffPolice = () => {
         </div>
 
         <Alert type="info">
-          Respond to emergency reports immediately. Process police clearance applications from the Documents tab.
+          Respond to emergency reports immediately. Process police clearance and non-emergency reports from the Applications tab.
         </Alert>
 
         <div className="module-tabs" style={{ marginBottom: 20 }}>
@@ -75,7 +75,7 @@ const StaffPolice = () => {
             onClick={() => setView('documents')}
             className={`module-tab ${view === 'documents' ? 'active' : ''}`}
           >
-            📄 Documents
+            📄 Applications & Reports
             {documentCount > 0 && (
               <span style={{
                 background: 'white',

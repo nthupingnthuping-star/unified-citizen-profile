@@ -138,6 +138,7 @@ export const REPORT_SERVICES = [
   'Traffic Accident Report',
   'Crime Report',
   'Cybercrime Report',
+  'Report Lost ID', // Added so Lost IDs are treated as reports
 ];
 
 export function isReportService(service_type) {
@@ -249,7 +250,7 @@ export async function submitApplication({
     const citizenSnap = await getDoc(doc(db, 'citizens', citizen_id));
     if (citizenSnap.exists()) {
       const citizenAge = calculateAge(citizenSnap.data().date_of_birth);
-      const vehicleType = application_data?.vehicle_type || 'standard';
+      const vehicleType = String(application_data?.vehicle_type || '').toLowerCase();
       const minAge = vehicleType === 'motorcycle'
         ? ELIGIBILITY_RULES.LEARNER_LICENSE_MOTORCYCLE.minAge
         : ELIGIBILITY_RULES.LEARNER_LICENSE_STANDARD.minAge;
@@ -532,7 +533,7 @@ export async function getPoliceEmergencyReports() {
   const all = await getAllPoliceApplications();
 
   return all
-    .filter((a) => a.service_type !== 'Police Clearance')
+    .filter((a) => a.service_type !== 'Police Clearance' && a.service_type !== 'Report Lost ID')
     .map((a) => ({ ...a, priority: inferPolicePriority(a) }))
     .filter((a) => {
       const active = !['completed', 'cancelled', 'approved'].includes(a.status);
@@ -545,8 +546,18 @@ export async function getPoliceEmergencyReports() {
 
 export async function getPoliceDocumentApplications(status = 'pending') {
   const all = await getAllPoliceApplications();
+  
   return all.filter((a) => {
-    if (a.service_type !== 'Police Clearance') return false;
+    // 1. Include Police Clearance
+    // 2. Include Lost ID Reports
+    // 3. Include NON-emergency reports (Crime/Cyber) that aren't critical/high
+    const isClearance = a.service_type === 'Police Clearance';
+    const isLostId = a.service_type === 'Report Lost ID';
+    const isNormalReport = isReportService(a.service_type) && inferPolicePriority(a) === POLICE_PRIORITY.NORMAL;
+
+    // Filter out Critical/High emergencies (they show in the Emergency tab)
+    if (!isClearance && !isLostId && !isNormalReport) return false;
+
     if (status === 'all') return true;
     return a.status === status;
   });

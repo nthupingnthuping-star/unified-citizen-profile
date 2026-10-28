@@ -42,7 +42,6 @@ const StaffPoliceEmergency = () => {
     }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     load();
     const timer = setInterval(load, 30000);
@@ -120,7 +119,7 @@ const StaffPoliceEmergency = () => {
           <div style={{ padding: 40, textAlign: 'center', color: '#666' }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>✓</div>
             <h3 style={{ color: '#006600', marginTop: 0 }}>No active emergencies</h3>
-            <p>All reports have been resolved.</p>
+            <p>All critical reports have been resolved.</p>
           </div>
         </Card>
       ) : (
